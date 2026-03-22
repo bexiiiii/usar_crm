@@ -1,0 +1,61 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: travelcrm_postgres
+    environment:
+      POSTGRES_DB: travelcrm
+      POSTGRES_USER: travelcrm
+      POSTGRES_PASSWORD: travelcrm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U travelcrm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: travelcrm_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@travelcrm.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: travelcrm_backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/travelcrm
+      DB_USER: travelcrm
+      DB_PASSWORD: travelcrm
+      JWT_SECRET: super-secret-key-change-in-production-256-bit
+      CORS_ORIGINS: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: travelcrm_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080/api
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
