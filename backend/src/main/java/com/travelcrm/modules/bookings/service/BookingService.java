@@ -10,9 +10,11 @@ import com.travelcrm.modules.bookings.dto.BookingResponse;
 import com.travelcrm.modules.clients.ClientRepository;
 import com.travelcrm.modules.leads.LeadRepository;
 import com.travelcrm.shared.exception.NotFoundException;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Year;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,8 +39,19 @@ public class BookingService {
         if (currentUser.getRole() == Role.MANAGER) {
             managerId = currentUser.getId();
         }
-        return bookingRepository.findWithFilters(status, managerId, clientId, from, to, destination, pageable)
-            .map(b -> toResponse(b, currentUser.getRole()));
+        final UUID finalManagerId = managerId;
+        Specification<BookingEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (status != null) predicates.add(cb.equal(root.get("status"), status));
+            if (finalManagerId != null) predicates.add(cb.equal(root.get("assignedManager").get("id"), finalManagerId));
+            if (clientId != null) predicates.add(cb.equal(root.get("client").get("id"), clientId));
+            if (from != null) predicates.add(cb.greaterThanOrEqualTo(root.get("departureDate"), from));
+            if (to != null) predicates.add(cb.lessThanOrEqualTo(root.get("departureDate"), to));
+            if (destination != null && !destination.isBlank())
+                predicates.add(cb.like(cb.lower(root.get("destination")), "%" + destination.toLowerCase() + "%"));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return bookingRepository.findAll(spec, pageable).map(b -> toResponse(b, currentUser.getRole()));
     }
 
     public BookingResponse findById(UUID id, UserPrincipal currentUser) {
