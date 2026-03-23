@@ -1,8 +1,8 @@
--- Super Admin user (password: Admin123! - placeholder, corrected in V100)
+-- Super Admin user (password: Admin123!)
 INSERT INTO users (id, email, password_hash, full_name, role, is_active) VALUES
 ('00000000-0000-0000-0000-000000000001', 'admin@travelcrm.com', '$2b$10$YRGVgnk6yZ/MW1y1tc2HpuWdtEFcLMUv3mUDTdOYagZPGp0C4VkP.', 'Администратор Системы', 'SUPER_ADMIN', true);
 
--- Manager users (password: Manager123! - placeholder, corrected in V100)
+-- Manager users (password: Manager123!)
 INSERT INTO users (id, email, password_hash, full_name, role, is_active) VALUES
 ('00000000-0000-0000-0000-000000000002', 'ivanova@travelcrm.com', '$2b$10$Dgl2axGYmcl2mVisgLnvhOPU.QBN3CfTF9JYWbuB05df7t/t4TRAG', 'Иванова Мария Сергеевна', 'MANAGER', true),
 ('00000000-0000-0000-0000-000000000003', 'petrov@travelcrm.com', '$2b$10$Dgl2axGYmcl2mVisgLnvhOPU.QBN3CfTF9JYWbuB05df7t/t4TRAG', 'Петров Алексей Николаевич', 'MANAGER', true),
