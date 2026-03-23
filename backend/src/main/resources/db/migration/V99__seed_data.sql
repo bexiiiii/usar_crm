@@ -1,12 +1,12 @@
--- Super Admin user (password: Admin123!)
+-- Super Admin user (password: Admin123! - placeholder, corrected in V100)
 INSERT INTO users (id, email, password_hash, full_name, role, is_active) VALUES
-('00000000-0000-0000-0000-000000000001', 'admin@travelcrm.com', '$2b$10$e9LTKIu/CSH3WnSosG4qNO1SV5PBqUbVofdsk06a3WzXtj8mkHV3S', 'Администратор Системы', 'SUPER_ADMIN', true);
+('00000000-0000-0000-0000-000000000001', 'admin@travelcrm.com', '$2b$10$YRGVgnk6yZ/MW1y1tc2HpuWdtEFcLMUv3mUDTdOYagZPGp0C4VkP.', 'Администратор Системы', 'SUPER_ADMIN', true);
 
--- Manager users (password: Manager123!)
+-- Manager users (password: Manager123! - placeholder, corrected in V100)
 INSERT INTO users (id, email, password_hash, full_name, role, is_active) VALUES
-('00000000-0000-0000-0000-000000000002', 'ivanova@travelcrm.com', '$2b$10$Dm5AsXoAQ7mXQjYMngKoT./o7ArSANwkwXL1bCdgQ3GmW0thlgR.6', 'Иванова Мария Сергеевна', 'MANAGER', true),
-('00000000-0000-0000-0000-000000000003', 'petrov@travelcrm.com', '$2b$10$Dm5AsXoAQ7mXQjYMngKoT./o7ArSANwkwXL1bCdgQ3GmW0thlgR.6', 'Петров Алексей Николаевич', 'MANAGER', true),
-('00000000-0000-0000-0000-000000000004', 'sidorova@travelcrm.com', '$2b$10$Dm5AsXoAQ7mXQjYMngKoT./o7ArSANwkwXL1bCdgQ3GmW0thlgR.6', 'Сидорова Елена Владимировна', 'MANAGER', true);
+('00000000-0000-0000-0000-000000000002', 'ivanova@travelcrm.com', '$2b$10$Dgl2axGYmcl2mVisgLnvhOPU.QBN3CfTF9JYWbuB05df7t/t4TRAG', 'Иванова Мария Сергеевна', 'MANAGER', true),
+('00000000-0000-0000-0000-000000000003', 'petrov@travelcrm.com', '$2b$10$Dgl2axGYmcl2mVisgLnvhOPU.QBN3CfTF9JYWbuB05df7t/t4TRAG', 'Петров Алексей Николаевич', 'MANAGER', true),
+('00000000-0000-0000-0000-000000000004', 'sidorova@travelcrm.com', '$2b$10$Dgl2axGYmcl2mVisgLnvhOPU.QBN3CfTF9JYWbuB05df7t/t4TRAG', 'Сидорова Елена Владимировна', 'MANAGER', true);
 
 -- Sample clients
 INSERT INTO clients (id, first_name, last_name, email, phone, status, source, assigned_manager_id, total_bookings, total_revenue) VALUES
