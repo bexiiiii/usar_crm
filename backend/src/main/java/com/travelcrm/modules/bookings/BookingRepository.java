@@ -13,12 +13,12 @@ import java.util.UUID;
 public interface BookingRepository extends JpaRepository<BookingEntity, UUID> {
     @Query("""
         SELECT b FROM BookingEntity b
-        WHERE (:status IS NULL OR b.status = :status)
+        WHERE (:status IS NULL OR b.status = cast(:status as string))
         AND (:managerId IS NULL OR b.assignedManager.id = :managerId)
         AND (:clientId IS NULL OR b.client.id = :clientId)
         AND (:from IS NULL OR b.departureDate >= :from)
         AND (:to IS NULL OR b.departureDate <= :to)
-        AND (:destination IS NULL OR LOWER(b.destination) LIKE LOWER(CONCAT('%', :destination, '%')))
+        AND (:destination IS NULL OR LOWER(b.destination) LIKE LOWER(CONCAT('%', cast(:destination as string), '%')))
         """)
     Page<BookingEntity> findWithFilters(
         @Param("status") String status,

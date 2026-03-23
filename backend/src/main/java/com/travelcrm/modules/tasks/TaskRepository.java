@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface TaskRepository extends JpaRepository<TaskEntity, UUID> {
-    @Query("SELECT t FROM TaskEntity t WHERE (:assignedTo IS NULL OR t.assignedTo.id = :assignedTo) AND (:status IS NULL OR t.status = :status) AND (:priority IS NULL OR t.priority = :priority)")
+    @Query("SELECT t FROM TaskEntity t WHERE (:assignedTo IS NULL OR t.assignedTo.id = :assignedTo) AND (:status IS NULL OR t.status = cast(:status as string)) AND (:priority IS NULL OR t.priority = cast(:priority as string))")
     Page<TaskEntity> findWithFilters(
         @Param("assignedTo") UUID assignedTo,
         @Param("status") String status,
