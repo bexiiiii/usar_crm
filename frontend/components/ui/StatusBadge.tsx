@@ -1,47 +1,47 @@
 import { cn } from '@/lib/utils'
 
-const clientStatusMap: Record<string, { label: string; class: string }> = {
-  NEW:      { label: 'Новый',     class: 'bg-blue-100 text-blue-700' },
-  ACTIVE:   { label: 'Активный', class: 'bg-green-100 text-green-700' },
-  VIP:      { label: 'VIP',      class: 'bg-purple-100 text-purple-700' },
-  INACTIVE: { label: 'Неактивный', class: 'bg-gray-100 text-gray-600' },
+const clientStatusMap: Record<string, { label: string; bg: string; color: string }> = {
+  NEW:      { label: 'Новый',      bg: '#DBEAFE', color: '#1D4ED8' },
+  ACTIVE:   { label: 'Активный',   bg: '#DCFCE7', color: '#16A34A' },
+  VIP:      { label: 'VIP',        bg: '#F3E8FF', color: '#7C3AED' },
+  INACTIVE: { label: 'Неактивный', bg: '#F1F5F9', color: '#64748B' },
 }
 
-const leadStageMap: Record<string, { label: string; class: string }> = {
-  NEW:           { label: 'Новый',         class: 'bg-blue-100 text-blue-700' },
-  CONTACTED:     { label: 'Контакт',       class: 'bg-yellow-100 text-yellow-700' },
-  PROPOSAL_SENT: { label: 'КП отправлено', class: 'bg-orange-100 text-orange-700' },
-  NEGOTIATION:   { label: 'Переговоры',    class: 'bg-indigo-100 text-indigo-700' },
-  WON:           { label: 'Успешно',       class: 'bg-green-100 text-green-700' },
-  LOST:          { label: 'Отказ',         class: 'bg-red-100 text-red-700' },
+const leadStageMap: Record<string, { label: string; bg: string; color: string }> = {
+  NEW:           { label: 'Новый',          bg: '#DBEAFE', color: '#1D4ED8' },
+  CONTACTED:     { label: 'Контакт',        bg: '#FEF9C3', color: '#A16207' },
+  PROPOSAL_SENT: { label: 'КП отправлено',  bg: '#FFEDD5', color: '#C2410C' },
+  NEGOTIATION:   { label: 'Переговоры',     bg: '#E0E7FF', color: '#4338CA' },
+  WON:           { label: 'Успешно',        bg: '#DCFCE7', color: '#16A34A' },
+  LOST:          { label: 'Отказ',          bg: '#FEE2E2', color: '#DC2626' },
 }
 
-const bookingStatusMap: Record<string, { label: string; class: string }> = {
-  PENDING:     { label: 'Ожидает',     class: 'bg-yellow-100 text-yellow-700' },
-  CONFIRMED:   { label: 'Подтверждено', class: 'bg-blue-100 text-blue-700' },
-  PAID:        { label: 'Оплачено',    class: 'bg-green-100 text-green-700' },
-  IN_PROGRESS: { label: 'В процессе', class: 'bg-indigo-100 text-indigo-700' },
-  COMPLETED:   { label: 'Завершено',  class: 'bg-gray-100 text-gray-700' },
-  CANCELLED:   { label: 'Отменено',   class: 'bg-red-100 text-red-700' },
+const bookingStatusMap: Record<string, { label: string; bg: string; color: string }> = {
+  PENDING:     { label: 'Ожидает',      bg: '#FEF9C3', color: '#A16207' },
+  CONFIRMED:   { label: 'Подтверждено', bg: '#DBEAFE', color: '#1D4ED8' },
+  PAID:        { label: 'Оплачено',     bg: '#DCFCE7', color: '#16A34A' },
+  IN_PROGRESS: { label: 'В процессе',   bg: '#E0E7FF', color: '#4338CA' },
+  COMPLETED:   { label: 'Завершено',    bg: '#F1F5F9', color: '#475569' },
+  CANCELLED:   { label: 'Отменено',     bg: '#FEE2E2', color: '#DC2626' },
 }
 
-const taskPriorityMap: Record<string, { label: string; class: string }> = {
-  LOW:    { label: 'Низкий',  class: 'bg-gray-100 text-gray-600' },
-  MEDIUM: { label: 'Средний', class: 'bg-blue-100 text-blue-700' },
-  HIGH:   { label: 'Высокий', class: 'bg-orange-100 text-orange-700' },
-  URGENT: { label: 'Срочно',  class: 'bg-red-100 text-red-700' },
+const taskPriorityMap: Record<string, { label: string; bg: string; color: string }> = {
+  LOW:    { label: 'Низкий',  bg: '#F1F5F9', color: '#64748B' },
+  MEDIUM: { label: 'Средний', bg: '#DBEAFE', color: '#1D4ED8' },
+  HIGH:   { label: 'Высокий', bg: '#FFEDD5', color: '#C2410C' },
+  URGENT: { label: 'Срочно',  bg: '#FEE2E2', color: '#DC2626' },
 }
 
-const paymentStatusMap: Record<string, { label: string; class: string }> = {
-  PENDING:   { label: 'Ожидает',  class: 'bg-yellow-100 text-yellow-700' },
-  COMPLETED: { label: 'Выполнен', class: 'bg-green-100 text-green-700' },
-  FAILED:    { label: 'Ошибка',   class: 'bg-red-100 text-red-700' },
-  REFUNDED:  { label: 'Возврат',  class: 'bg-purple-100 text-purple-700' },
+const paymentStatusMap: Record<string, { label: string; bg: string; color: string }> = {
+  PENDING:   { label: 'Ожидает',  bg: '#FEF9C3', color: '#A16207' },
+  COMPLETED: { label: 'Выполнен', bg: '#DCFCE7', color: '#16A34A' },
+  FAILED:    { label: 'Ошибка',   bg: '#FEE2E2', color: '#DC2626' },
+  REFUNDED:  { label: 'Возврат',  bg: '#F3E8FF', color: '#7C3AED' },
 }
 
-const roleMap: Record<string, { label: string; class: string }> = {
-  SUPER_ADMIN: { label: 'Супер-админ', class: 'bg-purple-100 text-purple-700' },
-  MANAGER:     { label: 'Менеджер',   class: 'bg-blue-100 text-blue-700' },
+const roleMap: Record<string, { label: string; bg: string; color: string }> = {
+  SUPER_ADMIN: { label: 'Супер-админ', bg: '#F3E8FF', color: '#7C3AED' },
+  MANAGER:     { label: 'Менеджер',   bg: '#DBEAFE', color: '#1D4ED8' },
 }
 
 type BadgeType = 'client' | 'lead' | 'booking' | 'task' | 'payment' | 'role'
@@ -52,19 +52,25 @@ interface StatusBadgeProps {
   className?: string
 }
 
-const maps: Record<BadgeType, Record<string, { label: string; class: string }>> = {
-  client: clientStatusMap,
-  lead: leadStageMap,
+const maps: Record<BadgeType, Record<string, { label: string; bg: string; color: string }>> = {
+  client:  clientStatusMap,
+  lead:    leadStageMap,
   booking: bookingStatusMap,
-  task: taskPriorityMap,
+  task:    taskPriorityMap,
   payment: paymentStatusMap,
-  role: roleMap,
+  role:    roleMap,
 }
 
 export default function StatusBadge({ value, type, className }: StatusBadgeProps) {
-  const config = maps[type]?.[value] || { label: value, class: 'bg-gray-100 text-gray-600' }
+  const config = maps[type]?.[value] || { label: value, bg: '#F1F5F9', color: '#64748B' }
   return (
-    <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', config.class, className)}>
+    <span
+      className={cn(
+        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap',
+        className
+      )}
+      style={{ backgroundColor: config.bg, color: config.color }}
+    >
       {config.label}
     </span>
   )

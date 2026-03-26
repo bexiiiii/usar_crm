@@ -16,8 +16,17 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    out-of-order: true
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 25MB
 jwt:
   secret: ${JWT_SECRET:change-me-in-production-use-256-bit-key-minimum-chars}
   expiration: 86400000
 cors:
   allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+app:
+  upload:
+    dir: uploads

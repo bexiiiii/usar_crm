@@ -10,7 +10,7 @@ import StatusBadge from '@/components/ui/StatusBadge'
 import { Skeleton } from '@/components/ui/LoadingSkeleton'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Client, Booking } from '@/types'
-import { ArrowLeft, Edit, Save, X } from 'lucide-react'
+import { ArrowLeft01Icon, Edit01Icon, FloppyDiskIcon, Cancel01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 
 const tabs = ['Информация', 'Брони', 'История']
@@ -71,22 +71,22 @@ export default function ClientDetailPage() {
         actions={
           <div className="flex gap-2">
             <button onClick={() => router.back()} className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
-              <ArrowLeft size={16} />
+              <ArrowLeft01Icon size={16} />
               Назад
             </button>
             {!editing ? (
               <button onClick={startEdit} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-700">
-                <Edit size={16} />
+                <Edit01Icon size={16} />
                 Редактировать
               </button>
             ) : (
               <>
                 <button onClick={() => setEditing(false)} className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
-                  <X size={16} />
+                  <Cancel01Icon size={16} />
                   Отмена
                 </button>
                 <button onClick={handleSubmit((d) => updateMutation.mutate(d))} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-700">
-                  <Save size={16} />
+                  <FloppyDiskIcon size={16} />
                   Сохранить
                 </button>
               </>

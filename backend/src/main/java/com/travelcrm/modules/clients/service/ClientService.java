@@ -9,13 +9,17 @@ import com.travelcrm.modules.clients.ClientRepository;
 import com.travelcrm.modules.clients.dto.ClientRequest;
 import com.travelcrm.modules.clients.dto.ClientResponse;
 import com.travelcrm.shared.exception.NotFoundException;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -28,7 +32,23 @@ public class ClientService {
         if (currentUser.getRole() == Role.MANAGER) {
             managerId = currentUser.getId();
         }
-        return clientRepository.findWithFilters(search, status, managerId, pageable).map(this::toResponse);
+        final UUID finalManagerId = managerId;
+        Specification<ClientEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (search != null && !search.isBlank()) {
+                String like = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("firstName")), like),
+                    cb.like(cb.lower(root.get("lastName")), like),
+                    cb.like(cb.lower(root.get("phone")), like),
+                    cb.like(cb.lower(root.get("email")), like)
+                ));
+            }
+            if (status != null) predicates.add(cb.equal(root.get("status"), status));
+            if (finalManagerId != null) predicates.add(cb.equal(root.get("assignedManager").get("id"), finalManagerId));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return clientRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     public ClientResponse findById(UUID id, UserPrincipal currentUser) {

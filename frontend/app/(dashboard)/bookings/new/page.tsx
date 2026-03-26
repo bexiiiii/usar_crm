@@ -8,9 +8,9 @@ import { z } from 'zod'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import PageHeader from '@/components/layout/PageHeader'
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
+import { ArrowLeft01Icon, ArrowRight01Icon, Tick01Icon, AirplaneTakeOff01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
-import { Client } from '@/types'
+import { Client, Tour } from '@/types'
 
 const schema = z.object({
   clientId: z.string().min(1, 'Выберите клиента'),
@@ -59,6 +59,7 @@ export default function NewBookingPage() {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [clientSearch, setClientSearch] = useState('')
+  const [selectedTourId, setSelectedTourId] = useState<string>('')
 
   const { data: clientsData } = useQuery<{ content: Client[] }>({
     queryKey: ['clients', 'search', clientSearch],
@@ -76,6 +77,33 @@ export default function NewBookingPage() {
   const watchedClientId = watch('clientId')
   const selectedClient = clientsData?.content?.find((c) => c.id === watchedClientId)
 
+  const { data: toursData } = useQuery<{ content: Tour[] }>({
+    queryKey: ['tours', 'active'],
+    queryFn: async () => {
+      const res = await api.get('/tours?status=ACTIVE&size=100')
+      return res.data.data
+    },
+    enabled: !!watchedClientId,
+  })
+
+  const handleTourSelect = (tourId: string) => {
+    setSelectedTourId(tourId)
+    if (!tourId) return
+    const tour = toursData?.content?.find((t) => t.id === tourId)
+    if (!tour) return
+    setValue('destination', tour.country + (tour.resort ? `, ${tour.resort}` : ''))
+    setValue('hotelName', tour.hotelName ?? '')
+    setValue('hotelStars', tour.hotelStars ?? 0)
+    setValue('mealPlan', tour.mealPlan ?? '')
+    setValue('tourOperator', tour.tourOperator ?? '')
+    setValue('departureDate', tour.departureDate ?? '')
+    setValue('returnDate', tour.returnDate ?? '')
+    setValue('totalPrice', tour.priceBrutto)
+    setValue('departureCity', tour.departureCity ?? '')
+    setValue('type', 'TOUR')
+    setValue('currency', tour.currency)
+  }
+
   const createMutation = useMutation({
     mutationFn: (data: FormData) => api.post('/bookings', data),
     onSuccess: (res) => {
@@ -92,7 +120,7 @@ export default function NewBookingPage() {
         title="Новая бронь"
         actions={
           <button onClick={() => router.back()} className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
-            <ArrowLeft size={16} />
+            <ArrowLeft01Icon size={16} />
             Назад
           </button>
         }
@@ -103,7 +131,7 @@ export default function NewBookingPage() {
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${i < step ? 'bg-green-500 text-white' : i === step ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
-              {i < step ? <Check size={14} /> : i + 1}
+              {i < step ? <Tick01Icon size={14} /> : i + 1}
             </div>
             <span className={`text-sm font-medium ${i === step ? 'text-gray-900' : 'text-gray-400'}`}>{s}</span>
             {i < STEPS.length - 1 && <div className="w-8 h-px bg-gray-200 mx-1" />}
@@ -143,12 +171,36 @@ export default function NewBookingPage() {
                       <p className="text-sm font-medium text-gray-900">{client.fullName}</p>
                       <p className="text-xs text-gray-500">{client.phone}</p>
                     </div>
-                    {watchedClientId === client.id && <Check size={16} className="ml-auto text-blue-600" />}
+                    {watchedClientId === client.id && <Tick01Icon size={16} className="ml-auto text-blue-600" />}
                   </div>
                 ))}
               </div>
             )}
             {errors.clientId && <p className="text-red-500 text-sm">{errors.clientId.message}</p>}
+
+            {watchedClientId && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+                  <AirplaneTakeOff01Icon size={16} className="text-blue-500" />
+                  Выбрать тур (необязательно)
+                </label>
+                <select
+                  value={selectedTourId}
+                  onChange={(e) => handleTourSelect(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Не выбирать тур</option>
+                  {toursData?.content?.map((tour) => (
+                    <option key={tour.id} value={tour.id}>
+                      {tour.name} — {tour.country} — ${tour.priceBrutto} {tour.currency}
+                    </option>
+                  ))}
+                </select>
+                {selectedTourId && (
+                  <p className="text-xs text-blue-600 mt-1">Поля бронирования заполнены из выбранного тура. Вы можете изменить их на следующем шаге.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -271,7 +323,7 @@ export default function NewBookingPage() {
             disabled={step === 0}
             className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft01Icon size={16} />
             Назад
           </button>
           {step < 3 ? (
@@ -280,7 +332,7 @@ export default function NewBookingPage() {
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700"
             >
               Далее
-              <ArrowRight size={16} />
+              <ArrowRight01Icon size={16} />
             </button>
           ) : (
             <button
@@ -288,7 +340,7 @@ export default function NewBookingPage() {
               disabled={createMutation.isPending}
               className="flex items-center gap-2 bg-green-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50"
             >
-              <Check size={16} />
+              <Tick01Icon size={16} />
               {createMutation.isPending ? 'Создание...' : 'Создать бронь'}
             </button>
           )}

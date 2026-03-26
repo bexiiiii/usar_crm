@@ -9,12 +9,16 @@ import com.travelcrm.modules.leads.LeadRepository;
 import com.travelcrm.modules.leads.dto.LeadRequest;
 import com.travelcrm.modules.leads.dto.LeadResponse;
 import com.travelcrm.shared.exception.NotFoundException;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -28,7 +32,14 @@ public class LeadService {
         if (currentUser.getRole() == Role.MANAGER) {
             managerId = currentUser.getId();
         }
-        return leadRepository.findWithFilters(stage, managerId, pageable).map(this::toResponse);
+        final UUID finalManagerId = managerId;
+        Specification<LeadEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (stage != null) predicates.add(cb.equal(root.get("stage"), stage));
+            if (finalManagerId != null) predicates.add(cb.equal(root.get("assignedManager").get("id"), finalManagerId));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return leadRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     public LeadResponse findById(UUID id) {

@@ -10,7 +10,7 @@ import EmptyState from '@/components/ui/EmptyState'
 import { formatDate } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { Task, PaginatedResponse } from '@/types'
-import { Plus, CheckSquare, Check } from 'lucide-react'
+import { Add01Icon, CheckmarkSquare01Icon, Tick01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 import { useForm } from 'react-hook-form'
 
@@ -84,7 +84,7 @@ export default function TasksPage() {
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700"
           >
-            <Plus size={16} />
+            <Add01Icon size={16} />
             Создать задачу
           </button>
         }
@@ -114,7 +114,7 @@ export default function TasksPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 py-16">
           <EmptyState
             message="Задач нет. Создайте задачу"
-            icon={<CheckSquare size={48} />}
+            icon={<CheckmarkSquare01Icon size={48} />}
             action={
               <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-blue-700">
                 Создать задачу
@@ -145,12 +145,12 @@ export default function TasksPage() {
                         onClick={() => completeMutation.mutate(task.id)}
                         className="w-6 h-6 rounded-full border-2 border-gray-300 hover:border-green-500 hover:bg-green-50 flex items-center justify-center transition-colors"
                       >
-                        <Check size={12} className="text-green-500 opacity-0 hover:opacity-100" />
+                        <Tick01Icon size={12} className="text-green-500 opacity-0 hover:opacity-100" />
                       </button>
                     )}
                     {task.status === 'DONE' && (
                       <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                        <Check size={12} className="text-white" />
+                        <Tick01Icon size={12} className="text-white" />
                       </div>
                     )}
                   </td>

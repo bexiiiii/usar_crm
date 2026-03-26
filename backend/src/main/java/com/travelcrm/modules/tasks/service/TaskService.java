@@ -11,13 +11,17 @@ import com.travelcrm.modules.tasks.TaskRepository;
 import com.travelcrm.modules.tasks.dto.TaskRequest;
 import com.travelcrm.modules.tasks.dto.TaskResponse;
 import com.travelcrm.shared.exception.NotFoundException;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -33,7 +37,15 @@ public class TaskService {
         if (currentUser.getRole() == Role.MANAGER) {
             assignedTo = currentUser.getId();
         }
-        return taskRepository.findWithFilters(assignedTo, status, priority, pageable).map(this::toResponse);
+        final UUID finalAssignedTo = assignedTo;
+        Specification<TaskEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (finalAssignedTo != null) predicates.add(cb.equal(root.get("assignedTo").get("id"), finalAssignedTo));
+            if (status != null) predicates.add(cb.equal(root.get("status"), status));
+            if (priority != null) predicates.add(cb.equal(root.get("priority"), priority));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return taskRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     @Transactional

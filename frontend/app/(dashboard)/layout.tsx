@@ -23,11 +23,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null
 
   return (
-    <div className="flex">
+    <div className="flex min-h-screen" style={{ backgroundColor: '#EEF0F8' }}>
+      {/* Fixed sidebar — 240px wide */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="main-content flex-1">
+
+      {/* Main content area — offset by sidebar width */}
+      <div
+        className="flex flex-col flex-1 min-h-screen"
+        style={{ marginLeft: '240px' }}
+      >
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="p-6">{children}</main>
+        <main
+          className="flex-1 p-6"
+          style={{ backgroundColor: '#EEF0F8' }}
+        >
+          {children}
+        </main>
       </div>
     </div>
   )
