@@ -10,7 +10,7 @@ import { TableSkeleton } from '@/components/ui/LoadingSkeleton'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Payment } from '@/types'
-import { CreditCard } from 'lucide-react'
+import { CreditCardAcceptIcon } from 'hugeicons-react'
 
 const directionLabels: Record<string, string> = { INCOMING: 'Входящий', OUTGOING: 'Исходящий' }
 const typeLabels: Record<string, string> = {
@@ -57,7 +57,7 @@ export default function PaymentsPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 py-16">
           <EmptyState
             message="Введите ID брони для просмотра платежей"
-            icon={<CreditCard size={48} />}
+            icon={<CreditCardAcceptIcon size={48} />}
             action={
               <button onClick={() => router.push('/bookings')} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-blue-700">
                 Перейти к броням

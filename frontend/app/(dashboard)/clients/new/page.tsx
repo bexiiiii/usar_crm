@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
 import PageHeader from '@/components/layout/PageHeader'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 
 const schema = z.object({
@@ -46,7 +46,7 @@ export default function NewClientPage() {
         title="Новый клиент"
         actions={
           <button onClick={() => router.back()} className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
-            <ArrowLeft size={16} />
+            <ArrowLeft01Icon size={16} />
             Назад
           </button>
         }

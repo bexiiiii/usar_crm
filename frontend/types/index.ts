@@ -140,6 +140,84 @@ export interface User {
   bookingCount: number
 }
 
+export interface Tour {
+  id: string
+  name: string
+  description: string | null
+  country: string
+  resort: string | null
+  hotelName: string | null
+  hotelStars: number | null
+  tourOperator: string | null
+  category: string
+  departureCity: string | null
+  durationDays: number | null
+  mealPlan: string | null
+  transport: string | null
+  priceNetto: number | null
+  priceBrutto: number
+  currency: string
+  maxSeats: number | null
+  bookedSeats: number
+  status: 'ACTIVE' | 'DRAFT' | 'SOLD_OUT' | 'ARCHIVED'
+  imageUrl: string | null
+  departureDate: string | null
+  returnDate: string | null
+  visaRequired: boolean
+  insuranceIncluded: boolean
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InvoiceItem {
+  description: string
+  quantity: number
+  unitPrice: number
+}
+
+export interface Invoice {
+  id: string
+  invoiceNumber: string
+  clientId: string | null
+  clientName: string | null
+  bookingId: string | null
+  bookingNumber: string | null
+  status: 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE' | 'CANCELLED'
+  amount: number
+  taxAmount: number
+  totalAmount: number
+  taxPercent: number
+  currency: string
+  dueDate: string | null
+  paidAt: string | null
+  items: InvoiceItem[] | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InvoiceStats {
+  total: number
+  unpaid: number
+  overdue: number
+  paidThisMonth: number
+}
+
+export interface Document {
+  id: string
+  bookingId: string | null
+  bookingNumber: string | null
+  clientId: string | null
+  clientName: string | null
+  type: string
+  fileName: string
+  filePath: string | null
+  generatedAt: string
+  generatedById: string | null
+  generatedByName: string | null
+}
+
 export interface DashboardStats {
   revenueCurrentMonth: number
   revenuePreviousMonth: number

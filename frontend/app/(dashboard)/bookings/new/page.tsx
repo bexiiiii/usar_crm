@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import PageHeader from '@/components/layout/PageHeader'
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
+import { ArrowLeft01Icon, ArrowRight01Icon, Tick01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 import { Client } from '@/types'
 
@@ -92,7 +92,7 @@ export default function NewBookingPage() {
         title="Новая бронь"
         actions={
           <button onClick={() => router.back()} className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
-            <ArrowLeft size={16} />
+            <ArrowLeft01Icon size={16} />
             Назад
           </button>
         }
@@ -103,7 +103,7 @@ export default function NewBookingPage() {
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${i < step ? 'bg-green-500 text-white' : i === step ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
-              {i < step ? <Check size={14} /> : i + 1}
+              {i < step ? <Tick01Icon size={14} /> : i + 1}
             </div>
             <span className={`text-sm font-medium ${i === step ? 'text-gray-900' : 'text-gray-400'}`}>{s}</span>
             {i < STEPS.length - 1 && <div className="w-8 h-px bg-gray-200 mx-1" />}
@@ -143,7 +143,7 @@ export default function NewBookingPage() {
                       <p className="text-sm font-medium text-gray-900">{client.fullName}</p>
                       <p className="text-xs text-gray-500">{client.phone}</p>
                     </div>
-                    {watchedClientId === client.id && <Check size={16} className="ml-auto text-blue-600" />}
+                    {watchedClientId === client.id && <Tick01Icon size={16} className="ml-auto text-blue-600" />}
                   </div>
                 ))}
               </div>
@@ -271,7 +271,7 @@ export default function NewBookingPage() {
             disabled={step === 0}
             className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft01Icon size={16} />
             Назад
           </button>
           {step < 3 ? (
@@ -280,7 +280,7 @@ export default function NewBookingPage() {
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700"
             >
               Далее
-              <ArrowRight size={16} />
+              <ArrowRight01Icon size={16} />
             </button>
           ) : (
             <button
@@ -288,7 +288,7 @@ export default function NewBookingPage() {
               disabled={createMutation.isPending}
               className="flex items-center gap-2 bg-green-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50"
             >
-              <Check size={16} />
+              <Tick01Icon size={16} />
               {createMutation.isPending ? 'Создание...' : 'Создать бронь'}
             </button>
           )}

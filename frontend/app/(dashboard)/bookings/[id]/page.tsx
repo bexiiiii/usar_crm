@@ -12,7 +12,7 @@ import { formatCurrency, formatDate, getDaysUntil } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { canAccess } from '@/lib/auth'
 import { Booking, Payment } from '@/types'
-import { ArrowLeft, AlertTriangle, Plus } from 'lucide-react'
+import { ArrowLeft01Icon, Alert02Icon, Add01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 
 const typeLabels: Record<string, string> = {
@@ -94,7 +94,7 @@ export default function BookingDetailPage() {
         actions={
           <div className="flex gap-2">
             <button onClick={() => router.back()} className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
-              <ArrowLeft size={16} />
+              <ArrowLeft01Icon size={16} />
               Назад
             </button>
             <select
@@ -117,7 +117,7 @@ export default function BookingDetailPage() {
       {/* Deadline alert */}
       {isDeadlineWarning && (
         <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-          <AlertTriangle className="text-red-500 flex-shrink-0" size={20} />
+          <Alert02Icon className="text-red-500 flex-shrink-0" size={20} />
           <p className="text-red-700 text-sm font-medium">
             Срок оплаты поставщику истекает через {deadlineDays} дн. ({formatDate(booking.supplierPaymentDeadline)})!
           </p>
@@ -166,7 +166,7 @@ export default function BookingDetailPage() {
                 onClick={() => setShowPaymentForm(true)}
                 className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                <Plus size={14} />
+                <Add01Icon size={14} />
                 Добавить
               </button>
             </div>

@@ -11,7 +11,7 @@ import { TableSkeleton } from '@/components/ui/LoadingSkeleton'
 import { formatDate } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { User, PaginatedResponse } from '@/types'
-import { Plus, UserX } from 'lucide-react'
+import { Add01Icon, UserRemove01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 
 export default function UsersPage() {
@@ -71,7 +71,7 @@ export default function UsersPage() {
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700"
           >
-            <Plus size={16} />
+            <Add01Icon size={16} />
             Создать сотрудника
           </button>
         }
@@ -134,7 +134,7 @@ export default function UsersPage() {
                         }}
                         className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 px-2 py-1.5 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
                       >
-                        <UserX size={14} />
+                        <UserRemove01Icon size={14} />
                         Деактивировать
                       </button>
                     )}

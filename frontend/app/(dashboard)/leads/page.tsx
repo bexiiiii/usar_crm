@@ -6,7 +6,7 @@ import api from '@/lib/api'
 import PageHeader from '@/components/layout/PageHeader'
 import { Lead } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, Calendar, Users, DollarSign } from 'lucide-react'
+import { Add01Icon, Calendar01Icon, UserGroupIcon, Money01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 import { useForm } from 'react-hook-form'
 
@@ -40,14 +40,14 @@ function LeadCard({ lead, onStageChange }: { lead: Lead; onStageChange: (id: str
 
       {lead.clientName && (
         <div className="flex items-center gap-1.5 text-xs text-gray-600">
-          <Users size={12} />
+          <UserGroupIcon size={12} />
           <span>{lead.clientName}</span>
         </div>
       )}
 
       {lead.destination && (
         <div className="flex items-center gap-1.5 text-xs text-gray-600">
-          <Calendar size={12} />
+          <Calendar01Icon size={12} />
           <span>{lead.destination}</span>
           {lead.travelDatesFrom && <span>· {formatDate(lead.travelDatesFrom)}</span>}
         </div>
@@ -55,7 +55,7 @@ function LeadCard({ lead, onStageChange }: { lead: Lead; onStageChange: (id: str
 
       {(lead.budgetMin || lead.budgetMax) && (
         <div className="flex items-center gap-1.5 text-xs text-gray-600">
-          <DollarSign size={12} />
+          <Money01Icon size={12} />
           <span>
             {lead.budgetMin ? formatCurrency(lead.budgetMin) : '—'}
             {' — '}
@@ -133,7 +133,7 @@ export default function LeadsPage() {
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
           >
-            <Plus size={16} />
+            <Add01Icon size={16} />
             Создать лид
           </button>
         }

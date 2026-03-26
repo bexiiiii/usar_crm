@@ -21,3 +21,13 @@ jwt:
   expiration: 86400000
 cors:
   allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 25MB
+
+app:
+  upload:
+    dir: uploads
