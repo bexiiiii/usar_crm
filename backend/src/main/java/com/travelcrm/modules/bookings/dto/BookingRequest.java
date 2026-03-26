@@ -10,6 +10,7 @@ import java.util.UUID;
 
 @Data
 public class BookingRequest {
+    private UUID tourId;
     private UUID leadId;
 
     @NotNull

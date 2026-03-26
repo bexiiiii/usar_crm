@@ -3,6 +3,7 @@ package com.travelcrm.modules.bookings;
 import com.travelcrm.modules.auth.UserEntity;
 import com.travelcrm.modules.clients.ClientEntity;
 import com.travelcrm.modules.leads.LeadEntity;
+import com.travelcrm.modules.tours.TourEntity;
 import com.travelcrm.shared.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,6 +21,10 @@ import java.time.LocalDate;
 public class BookingEntity extends BaseEntity {
     @Column(name = "booking_number", unique = true, nullable = false)
     private String bookingNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tour_id")
+    private TourEntity tour;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lead_id")

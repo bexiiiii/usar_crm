@@ -1,0 +1,3 @@
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS tour_id UUID;
+ALTER TABLE bookings ADD CONSTRAINT fk_bookings_tour
+    FOREIGN KEY (tour_id) REFERENCES tours(id) ON DELETE SET NULL;

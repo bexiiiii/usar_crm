@@ -11,6 +11,8 @@ import java.util.UUID;
 public class BookingResponse {
     private UUID id;
     private String bookingNumber;
+    private UUID tourId;
+    private String tourName;
     private UUID clientId;
     private String clientName;
     private UUID assignedManagerId;

@@ -9,6 +9,8 @@ import com.travelcrm.modules.bookings.dto.BookingRequest;
 import com.travelcrm.modules.bookings.dto.BookingResponse;
 import com.travelcrm.modules.clients.ClientRepository;
 import com.travelcrm.modules.leads.LeadRepository;
+import com.travelcrm.modules.tours.TourEntity;
+import com.travelcrm.modules.tours.TourRepository;
 import com.travelcrm.shared.exception.NotFoundException;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class BookingService {
     private final ClientRepository clientRepository;
     private final LeadRepository leadRepository;
     private final UserRepository userRepository;
+    private final TourRepository tourRepository;
 
     public Page<BookingResponse> findAll(String status, UUID managerId, UUID clientId, LocalDate from, LocalDate to,
                                           String destination, Pageable pageable, UserPrincipal currentUser) {
@@ -66,9 +69,23 @@ public class BookingService {
 
     @Transactional
     public BookingResponse create(BookingRequest req, UserPrincipal currentUser) {
+        // Check tour seat availability
+        TourEntity tour = null;
+        if (req.getTourId() != null) {
+            tour = tourRepository.findById(req.getTourId())
+                .orElseThrow(() -> new NotFoundException("Тур не найден"));
+            if (tour.getMaxSeats() != null && tour.getBookedSeats() >= tour.getMaxSeats()) {
+                throw new IllegalStateException("Нет свободных мест в этом туре");
+            }
+        }
         BookingEntity booking = new BookingEntity();
         applyRequest(booking, req, currentUser);
         booking.setBookingNumber(generateBookingNumber());
+        if (tour != null) {
+            booking.setTour(tour);
+            tour.setBookedSeats(tour.getBookedSeats() + 1);
+            tourRepository.save(tour);
+        }
         return toResponse(bookingRepository.save(booking), currentUser.getRole());
     }
 
@@ -87,12 +104,19 @@ public class BookingService {
         if (currentUser.getRole() == Role.MANAGER && "CANCELLED".equals(status)) {
             throw new AccessDeniedException("Нет доступа — недостаточно прав");
         }
+        String prevStatus = booking.getStatus();
         booking.setStatus(status);
         if ("COMPLETED".equals(status) && booking.getClient() != null) {
             var client = booking.getClient();
             client.setTotalBookings(client.getTotalBookings() + 1);
             client.setTotalRevenue(client.getTotalRevenue().add(booking.getTotalPrice()));
             clientRepository.save(client);
+        }
+        // Free up tour seat on cancellation
+        if ("CANCELLED".equals(status) && !"CANCELLED".equals(prevStatus) && booking.getTour() != null) {
+            TourEntity tour = booking.getTour();
+            tour.setBookedSeats(Math.max(0, tour.getBookedSeats() - 1));
+            tourRepository.save(tour);
         }
         return toResponse(bookingRepository.save(booking), currentUser.getRole());
     }
@@ -177,6 +201,10 @@ public class BookingService {
         BookingResponse r = new BookingResponse();
         r.setId(b.getId());
         r.setBookingNumber(b.getBookingNumber());
+        if (b.getTour() != null) {
+            r.setTourId(b.getTour().getId());
+            r.setTourName(b.getTour().getName());
+        }
         r.setStatus(b.getStatus());
         r.setType(b.getType());
         r.setDestination(b.getDestination());
