@@ -34,6 +34,16 @@ public class TourResponse {
     private boolean visaRequired;
     private boolean insuranceIncluded;
     private String notes;
+    private String locations;
+    private String included;
+    private String program;
+    private String warnings;
+    private String whatToBring;
+    private String dressCode;
+    private String transportNotes;
+    private String mealInfo;
+    private String departureDates;
+    private String averageCheck;
     private Instant createdAt;
     private Instant updatedAt;
 }

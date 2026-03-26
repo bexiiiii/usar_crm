@@ -46,6 +46,16 @@ interface Tour {
   insuranceIncluded: boolean
   notes: string | null
   createdAt: string
+  locations: string | null
+  included: string | null
+  program: string | null
+  warnings: string | null
+  whatToBring: string | null
+  dressCode: string | null
+  transportNotes: string | null
+  mealInfo: string | null
+  departureDates: string | null
+  averageCheck: string | null
 }
 
 interface TourForm {
@@ -71,6 +81,16 @@ interface TourForm {
   insuranceIncluded: boolean
   notes: string
   description: string
+  departureDates: string
+  locations: string
+  included: string
+  program: string
+  mealInfo: string
+  warnings: string
+  whatToBring: string
+  dressCode: string
+  transportNotes: string
+  averageCheck: string
 }
 
 const EMPTY_FORM: TourForm = {
@@ -80,6 +100,9 @@ const EMPTY_FORM: TourForm = {
   currency: 'KZT', maxSeats: '', status: 'ACTIVE',
   departureDate: '', returnDate: '', visaRequired: false,
   insuranceIncluded: false, notes: '', description: '',
+  departureDates: '', locations: '', included: '', program: '',
+  mealInfo: '', warnings: '', whatToBring: '', dressCode: '',
+  transportNotes: '', averageCheck: '',
 }
 
 const categoryLabels: Record<string, string> = {
@@ -218,6 +241,16 @@ export default function ToursPage() {
       insuranceIncluded: tour.insuranceIncluded,
       notes: tour.notes ?? '',
       description: tour.description ?? '',
+      departureDates: tour.departureDates ?? '',
+      locations: tour.locations ?? '',
+      included: tour.included ?? '',
+      program: tour.program ?? '',
+      mealInfo: tour.mealInfo ?? '',
+      warnings: tour.warnings ?? '',
+      whatToBring: tour.whatToBring ?? '',
+      dressCode: tour.dressCode ?? '',
+      transportNotes: tour.transportNotes ?? '',
+      averageCheck: tour.averageCheck ?? '',
     })
     setEditingId(tour.id)
     setShowModal(true)
@@ -852,6 +885,121 @@ export default function ToursPage() {
                   className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
                   style={{ borderColor: '#E2E8F4' }}
                 />
+              </div>
+
+              {/* Detailed tour info section */}
+              <div className="border-t pt-5" style={{ borderColor: '#E2E8F4' }}>
+                <h3 className="text-sm font-bold mb-4" style={{ color: '#1A2332' }}>Подробная информация о туре</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Даты отправления</label>
+                    <textarea
+                      value={form.departureDates}
+                      onChange={(e) => setForm({ ...form, departureDates: e.target.value })}
+                      rows={3}
+                      placeholder={"8, 15, 22, 29 марта\n5, 12, 19, 26 апреля"}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Посещаемые локации (каждая с новой строки)</label>
+                    <textarea
+                      value={form.locations}
+                      onChange={(e) => setForm({ ...form, locations: e.target.value })}
+                      rows={4}
+                      placeholder={"Чарынский каньон «Долина Замков»\nЧёрный каньон\nЛунный каньон"}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>В стоимость входит (каждый пункт с новой строки)</label>
+                    <textarea
+                      value={form.included}
+                      onChange={(e) => setForm({ ...form, included: e.target.value })}
+                      rows={4}
+                      placeholder={"Комфортабельный транспорт\nВход в национальные парки\nУслуги гида"}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Программа тура (расписание)</label>
+                    <textarea
+                      value={form.program}
+                      onChange={(e) => setForm({ ...form, program: e.target.value })}
+                      rows={6}
+                      placeholder={"8:00–8:30 — сбор и выезд\n11:30 — прибытие на каньон..."}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Информация о питании</label>
+                    <textarea
+                      value={form.mealInfo}
+                      onChange={(e) => setForm({ ...form, mealInfo: e.target.value })}
+                      rows={3}
+                      placeholder="Питание в стоимость не входит. Средний чек: 3 500–4 000 тенге"
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>⚠️ Важные предупреждения</label>
+                    <textarea
+                      value={form.warnings}
+                      onChange={(e) => setForm({ ...form, warnings: e.target.value })}
+                      rows={3}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Что взять с собой (каждый пункт с новой строки)</label>
+                    <textarea
+                      value={form.whatToBring}
+                      onChange={(e) => setForm({ ...form, whatToBring: e.target.value })}
+                      rows={5}
+                      placeholder={"Удостоверение личности\nЕда и перекус\nТёплые вещи"}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Как одеться</label>
+                    <textarea
+                      value={form.dressCode}
+                      onChange={(e) => setForm({ ...form, dressCode: e.target.value })}
+                      rows={3}
+                      placeholder={"Тёплые вещи\nВетровка, куртка\nОбувь с нескользящей подошвой"}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Транспорт (важная информация)</label>
+                    <textarea
+                      value={form.transportNotes}
+                      onChange={(e) => setForm({ ...form, transportNotes: e.target.value })}
+                      rows={2}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Средний чек</label>
+                    <input
+                      type="text"
+                      value={form.averageCheck}
+                      onChange={(e) => setForm({ ...form, averageCheck: e.target.value })}
+                      placeholder="3 500–4 000 тенге"
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-2">

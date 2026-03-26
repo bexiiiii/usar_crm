@@ -166,6 +166,16 @@ export interface Tour {
   visaRequired: boolean
   insuranceIncluded: boolean
   notes: string | null
+  departureDates: string | null
+  locations: string | null
+  included: string | null
+  program: string | null
+  mealInfo: string | null
+  warnings: string | null
+  whatToBring: string | null
+  dressCode: string | null
+  transportNotes: string | null
+  averageCheck: string | null
   createdAt: string
   updatedAt: string
 }

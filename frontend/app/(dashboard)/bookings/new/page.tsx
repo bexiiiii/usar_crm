@@ -35,7 +35,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-const STEPS = ['Клиент', 'Детали', 'Цена', 'Подтверждение']
+const STEPS = ['Клиент', 'Детали', 'Подтверждение']
 
 const typeOptions = [
   { value: 'TOUR', label: 'Тур' },
@@ -62,6 +62,7 @@ export default function NewBookingPage() {
   const [clientSearch, setClientSearch] = useState('')
   const [selectedTourId, setSelectedTourId] = useState<string>('')
   const [showCreateClient, setShowCreateClient] = useState(false)
+  const [selectedClientData, setSelectedClientData] = useState<Client | null>(null)
   const { register: regClient, handleSubmit: handleClientSubmit, reset: resetClient, formState: { errors: clientErrors } } = useForm()
 
   const { data: clientsData } = useQuery<{ content: Client[] }>({
@@ -78,7 +79,7 @@ export default function NewBookingPage() {
   })
 
   const watchedClientId = watch('clientId')
-  const selectedClient = clientsData?.content?.find((c) => c.id === watchedClientId)
+  const selectedClient = selectedClientData || clientsData?.content?.find((c) => c.id === watchedClientId)
 
   const { data: toursData } = useQuery<{ content: Tour[] }>({
     queryKey: ['tours', 'active'],
@@ -123,6 +124,7 @@ export default function NewBookingPage() {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       setClientSearch(newClient.fullName)
       setValue('clientId', newClient.id)
+      setSelectedClientData(newClient)
       setShowCreateClient(false)
       resetClient()
     },

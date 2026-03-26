@@ -92,6 +92,16 @@ public class TourService {
         tour.setVisaRequired(req.isVisaRequired());
         tour.setInsuranceIncluded(req.isInsuranceIncluded());
         tour.setNotes(req.getNotes());
+        tour.setLocations(req.getLocations());
+        tour.setIncluded(req.getIncluded());
+        tour.setProgram(req.getProgram());
+        tour.setWarnings(req.getWarnings());
+        tour.setWhatToBring(req.getWhatToBring());
+        tour.setDressCode(req.getDressCode());
+        tour.setTransportNotes(req.getTransportNotes());
+        tour.setMealInfo(req.getMealInfo());
+        tour.setDepartureDates(req.getDepartureDates());
+        tour.setAverageCheck(req.getAverageCheck());
     }
 
     private TourResponse toResponse(TourEntity t) {
@@ -121,6 +131,16 @@ public class TourService {
         r.setVisaRequired(t.isVisaRequired());
         r.setInsuranceIncluded(t.isInsuranceIncluded());
         r.setNotes(t.getNotes());
+        r.setLocations(t.getLocations());
+        r.setIncluded(t.getIncluded());
+        r.setProgram(t.getProgram());
+        r.setWarnings(t.getWarnings());
+        r.setWhatToBring(t.getWhatToBring());
+        r.setDressCode(t.getDressCode());
+        r.setTransportNotes(t.getTransportNotes());
+        r.setMealInfo(t.getMealInfo());
+        r.setDepartureDates(t.getDepartureDates());
+        r.setAverageCheck(t.getAverageCheck());
         r.setCreatedAt(t.getCreatedAt());
         r.setUpdatedAt(t.getUpdatedAt());
         return r;
