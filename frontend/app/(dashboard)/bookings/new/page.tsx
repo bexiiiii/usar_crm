@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import PageHeader from '@/components/layout/PageHeader'
-import { ArrowLeft01Icon, ArrowRight01Icon, Tick01Icon, AirplaneTakeOff01Icon } from 'hugeicons-react'
+import { ArrowLeft01Icon, ArrowRight01Icon, Tick01Icon, AirplaneTakeOff01Icon, UserAdd01Icon, Cancel01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 import { Client, Tour } from '@/types'
 
@@ -57,9 +57,12 @@ const mealOptions = [
 
 export default function NewBookingPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [step, setStep] = useState(0)
   const [clientSearch, setClientSearch] = useState('')
   const [selectedTourId, setSelectedTourId] = useState<string>('')
+  const [showCreateClient, setShowCreateClient] = useState(false)
+  const { register: regClient, handleSubmit: handleClientSubmit, reset: resetClient, formState: { errors: clientErrors } } = useForm()
 
   const { data: clientsData } = useQuery<{ content: Client[] }>({
     queryKey: ['clients', 'search', clientSearch],
@@ -112,6 +115,20 @@ export default function NewBookingPage() {
     },
   })
 
+  const createClientMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/clients', data),
+    onSuccess: (res) => {
+      toast.success('Клиент создан')
+      const newClient: Client = res.data.data
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      setClientSearch(newClient.fullName)
+      setValue('clientId', newClient.id)
+      setShowCreateClient(false)
+      resetClient()
+    },
+    onError: () => toast.error('Ошибка при создании клиента'),
+  })
+
   const formValues = watch()
 
   return (
@@ -155,28 +172,97 @@ export default function NewBookingPage() {
             </div>
             {clientsData?.content && (
               <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
-                {clientsData.content.length === 0 && (
-                  <p className="text-gray-500 text-sm text-center py-6">Клиентов не найдено</p>
-                )}
-                {clientsData.content.map((client) => (
-                  <div
-                    key={client.id}
-                    onClick={() => setValue('clientId', client.id)}
-                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${watchedClientId === client.id ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'}`}
-                  >
-                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm flex-shrink-0">
-                      {client.firstName.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{client.fullName}</p>
-                      <p className="text-xs text-gray-500">{client.phone}</p>
-                    </div>
-                    {watchedClientId === client.id && <Tick01Icon size={16} className="ml-auto text-blue-600" />}
+                {clientsData.content.length === 0 ? (
+                  <div className="py-8 text-center space-y-3">
+                    <p className="text-gray-500 text-sm">Клиент не найден</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateClient(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
+                    >
+                      <UserAdd01Icon size={16} />
+                      Создать клиента
+                    </button>
                   </div>
-                ))}
+                ) : (
+                  clientsData.content.map((client) => (
+                    <div
+                      key={client.id}
+                      onClick={() => setValue('clientId', client.id)}
+                      className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${watchedClientId === client.id ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'}`}
+                    >
+                      <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm flex-shrink-0">
+                        {client.firstName.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{client.fullName}</p>
+                        <p className="text-xs text-gray-500">{client.phone}</p>
+                      </div>
+                      {watchedClientId === client.id && <Tick01Icon size={16} className="ml-auto text-blue-600" />}
+                    </div>
+                  ))
+                )}
               </div>
             )}
+            {clientSearch && !showCreateClient && clientsData?.content && clientsData.content.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowCreateClient(true)}
+                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 mt-1"
+              >
+                <UserAdd01Icon size={14} />
+                Нет нужного клиента? Создать нового
+              </button>
+            )}
             {errors.clientId && <p className="text-red-500 text-sm">{errors.clientId.message}</p>}
+
+            {/* Inline create client form */}
+            {showCreateClient && (
+              <div className="mt-3 border border-blue-200 rounded-xl bg-blue-50/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-900">Новый клиент</p>
+                  <button type="button" onClick={() => { setShowCreateClient(false); resetClient() }} className="p-1 rounded text-gray-400 hover:bg-gray-100">
+                    <Cancel01Icon size={16} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Имя *</label>
+                    <input {...regClient('firstName', { required: true })} className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${clientErrors.firstName ? 'border-red-400' : 'border-gray-200'}`} placeholder="Иван" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Фамилия *</label>
+                    <input {...regClient('lastName', { required: true })} className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${clientErrors.lastName ? 'border-red-400' : 'border-gray-200'}`} placeholder="Иванов" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Телефон *</label>
+                    <input {...regClient('phone', { required: true })} className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${clientErrors.phone ? 'border-red-400' : 'border-gray-200'}`} placeholder="+7 999 123 45 67" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Источник</label>
+                    <input {...regClient('source')} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Instagram..." />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Статус</label>
+                    <select {...regClient('status')} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                      <option value="NEW">Новый</option>
+                      <option value="ACTIVE">Активный</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button type="button" onClick={() => { setShowCreateClient(false); resetClient() }} className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Отмена</button>
+                  <button
+                    type="button"
+                    disabled={createClientMutation.isPending}
+                    onClick={() => handleClientSubmit((d) => createClientMutation.mutate(d))()}
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {createClientMutation.isPending ? 'Сохранение...' : 'Создать и выбрать'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {watchedClientId && (
               <div className="mt-4 pt-4 border-t border-gray-100">
