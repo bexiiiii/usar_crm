@@ -12,6 +12,8 @@ import {
   Message01Icon,
   LinkSquare01Icon,
   CheckListIcon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
 } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 import { useForm } from 'react-hook-form'
@@ -46,10 +48,15 @@ function getPriorityBadge(probability: number): { label: string; bg: string; col
   }
 }
 
+const STAGE_KEYS = STAGES.map((s) => s.key)
+
 function LeadCard({ lead, onStageChange }: { lead: Lead; onStageChange: (id: string, stage: string) => void }) {
   const statusBadge = STATUS_BADGE[lead.stage] ?? STATUS_BADGE['NEW']
   const priorityBadge = getPriorityBadge(lead.probability)
   const totalPax = (lead.paxAdults ?? 0) + (lead.paxChildren ?? 0)
+  const stageIdx = STAGE_KEYS.indexOf(lead.stage)
+  const canMovePrev = stageIdx > 0
+  const canMoveNext = stageIdx < STAGE_KEYS.length - 1
 
   // Assignee initials (up to 2 chars)
   const initials = lead.assignedManagerName
@@ -137,6 +144,31 @@ function LeadCard({ lead, onStageChange }: { lead: Lead; onStageChange: (id: str
           <CheckListIcon size={13} />
           <span>{totalPax}чел.</span>
         </div>
+      </div>
+
+      {/* Move stage buttons */}
+      <div className="flex items-center gap-1 justify-end">
+        {canMovePrev && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onStageChange(lead.id, STAGE_KEYS[stageIdx - 1]) }}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-gray-100 border border-gray-200 transition-colors"
+            title={`Переместить: ${STAGES[stageIdx - 1].label}`}
+          >
+            <ArrowLeft01Icon size={12} />
+            <span>{STAGES[stageIdx - 1].label}</span>
+          </button>
+        )}
+        {canMoveNext && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onStageChange(lead.id, STAGE_KEYS[stageIdx + 1]) }}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-white hover:opacity-90 border transition-colors"
+            style={{ backgroundColor: STAGES[stageIdx + 1].dotColor, borderColor: STAGES[stageIdx + 1].dotColor }}
+            title={`Переместить: ${STAGES[stageIdx + 1].label}`}
+          >
+            <span>{STAGES[stageIdx + 1].label}</span>
+            <ArrowRight01Icon size={12} />
+          </button>
+        )}
       </div>
 
     </div>
