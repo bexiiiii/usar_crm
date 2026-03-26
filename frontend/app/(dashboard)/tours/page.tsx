@@ -77,7 +77,7 @@ const EMPTY_FORM: TourForm = {
   name: '', country: '', resort: '', hotelName: '', hotelStars: '',
   tourOperator: '', category: 'BEACH', departureCity: '', durationDays: '7',
   mealPlan: 'AI', transport: 'AIR', priceNetto: '', priceBrutto: '',
-  currency: 'USD', maxSeats: '', status: 'ACTIVE',
+  currency: 'KZT', maxSeats: '', status: 'ACTIVE',
   departureDate: '', returnDate: '', visaRequired: false,
   insuranceIncluded: false, notes: '', description: '',
 }

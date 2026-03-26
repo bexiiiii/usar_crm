@@ -93,7 +93,7 @@ export default function SettingsPage() {
     email: 'info@usartravel.kz',
     address: 'г. Алматы, ул. Абая, 1',
     website: 'https://usartravel.kz',
-    currency: 'USD',
+    currency: 'KZT',
     timezone: 'Asia/Almaty',
     language: 'ru',
     workStart: '09:00',

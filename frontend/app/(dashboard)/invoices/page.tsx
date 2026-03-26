@@ -59,7 +59,7 @@ interface InvoiceForm {
 
 const EMPTY_FORM: InvoiceForm = {
   clientId: '', bookingId: '', status: 'DRAFT',
-  amount: '', taxPercent: '0', currency: 'USD',
+  amount: '', taxPercent: '0', currency: 'KZT',
   dueDate: '', notes: '',
   items: [{ description: '', quantity: 1, unitPrice: 0, total: 0 }],
 }

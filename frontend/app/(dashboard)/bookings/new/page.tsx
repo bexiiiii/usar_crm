@@ -28,7 +28,7 @@ const schema = z.object({
   tourOperator: z.string().optional(),
   totalPrice: z.coerce.number().min(0.01, 'Введите стоимость'),
   costPrice: z.coerce.number().optional(),
-  currency: z.string().default('USD'),
+  currency: z.string().default('KZT'),
   supplierPaymentDeadline: z.string().optional(),
   notes: z.string().optional(),
 })
@@ -71,7 +71,7 @@ export default function NewBookingPage() {
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { paxAdults: 1, paxChildren: 0, currency: 'USD' },
+    defaultValues: { paxAdults: 1, paxChildren: 0, currency: 'KZT' },
   })
 
   const watchedClientId = watch('clientId')
@@ -283,10 +283,10 @@ export default function NewBookingPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Валюта</label>
               <select {...register('currency')} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="KZT">KZT — Тенге</option>
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
                 <option value="RUB">RUB</option>
-                <option value="KZT">KZT</option>
               </select>
             </div>
             <div>
