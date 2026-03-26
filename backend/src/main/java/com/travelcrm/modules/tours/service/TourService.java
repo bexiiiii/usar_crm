@@ -7,16 +7,20 @@ import com.travelcrm.modules.tours.dto.TourResponse;
 import com.travelcrm.shared.exception.NotFoundException;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TourService {
@@ -67,6 +71,13 @@ public class TourService {
     public void delete(UUID id) {
         if (!tourRepository.existsById(id)) throw new NotFoundException("Тур не найден");
         tourRepository.deleteById(id);
+    }
+
+    @Scheduled(cron = "0 0 2 * * *")
+    @Transactional
+    public void autoArchiveExpiredTours() {
+        int count = tourRepository.archiveExpiredTours(LocalDate.now());
+        if (count > 0) log.info("Auto-archived {} expired tours", count);
     }
 
     private void mapFields(TourEntity tour, TourRequest req) {

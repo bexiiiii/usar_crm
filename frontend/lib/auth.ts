@@ -15,6 +15,9 @@ const permissions: Record<string, Role[]> = {
   export_data:       ['SUPER_ADMIN'],
   cancel_booking:    ['SUPER_ADMIN'],
   view_analytics:    ['SUPER_ADMIN', 'MANAGER'],
+  view_payments:     ['SUPER_ADMIN'],
+  view_reports:      ['SUPER_ADMIN'],
+  manage_settings:   ['SUPER_ADMIN'],
 }
 
 export function canAccess(role: Role | undefined, feature: string): boolean {

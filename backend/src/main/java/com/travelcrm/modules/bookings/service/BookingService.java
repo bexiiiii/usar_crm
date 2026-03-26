@@ -74,6 +74,12 @@ public class BookingService {
         if (req.getTourId() != null) {
             tour = tourRepository.findById(req.getTourId())
                 .orElseThrow(() -> new NotFoundException("Тур не найден"));
+            if (!"ACTIVE".equals(tour.getStatus())) {
+                throw new IllegalStateException("Тур недоступен для бронирования");
+            }
+            if (tour.getDepartureDate() != null && tour.getDepartureDate().isBefore(LocalDate.now())) {
+                throw new IllegalStateException("Дата отправления уже прошла");
+            }
             if (tour.getMaxSeats() != null && tour.getBookedSeats() >= tour.getMaxSeats()) {
                 throw new IllegalStateException("Нет свободных мест в этом туре");
             }
@@ -86,7 +92,15 @@ public class BookingService {
             tour.setBookedSeats(tour.getBookedSeats() + 1);
             tourRepository.save(tour);
         }
-        return toResponse(bookingRepository.save(booking), currentUser.getRole());
+        BookingEntity saved = bookingRepository.save(booking);
+        // Update client stats immediately on booking creation
+        if (saved.getClient() != null) {
+            var client = saved.getClient();
+            client.setTotalBookings(client.getTotalBookings() + 1);
+            client.setTotalRevenue(client.getTotalRevenue().add(saved.getTotalPrice()));
+            clientRepository.save(client);
+        }
+        return toResponse(saved, currentUser.getRole());
     }
 
     @Transactional
@@ -106,10 +120,11 @@ public class BookingService {
         }
         String prevStatus = booking.getStatus();
         booking.setStatus(status);
-        if ("COMPLETED".equals(status) && booking.getClient() != null) {
+        // Reverse client stats on cancellation
+        if ("CANCELLED".equals(status) && !"CANCELLED".equals(prevStatus) && booking.getClient() != null) {
             var client = booking.getClient();
-            client.setTotalBookings(client.getTotalBookings() + 1);
-            client.setTotalRevenue(client.getTotalRevenue().add(booking.getTotalPrice()));
+            client.setTotalBookings(Math.max(0, client.getTotalBookings() - 1));
+            client.setTotalRevenue(client.getTotalRevenue().subtract(booking.getTotalPrice()).max(BigDecimal.ZERO));
             clientRepository.save(client);
         }
         // Free up tour seat on cancellation

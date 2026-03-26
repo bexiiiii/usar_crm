@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils'
 interface SubItem {
   href: string
   label: string
+  feature?: string
 }
 
 interface NavItem {
@@ -48,7 +49,7 @@ const navItems: NavItem[] = [
     icon: DashboardSquare01Icon,
     children: [
       { href: '/analytics', label: 'Аналитика' },
-      { href: '/reports', label: 'Отчёты' },
+      { href: '/reports', label: 'Отчёты', feature: 'view_reports' },
     ],
   },
   { href: '/clients',        label: 'Клиенты',       icon: UserGroupIcon },
@@ -63,13 +64,13 @@ const navItems: NavItem[] = [
       { href: '/calendar', label: 'Календарь' },
     ],
   },
-  { href: '/payments',       label: 'Платежи',       icon: Money01Icon },
+  { href: '/payments',       label: 'Платежи',       icon: Money01Icon,          feature: 'view_payments' },
   { href: '/invoices',       label: 'Счета',         icon: Invoice01Icon },
   { href: '/tasks',          label: 'Задачи',        icon: CheckmarkSquare01Icon },
   { href: '/documents',      label: 'Документы',     icon: File01Icon },
   { href: '/communications', label: 'Коммуникации',  icon: Message01Icon },
-  { href: '/settings',       label: 'Настройки',     icon: Settings01Icon },
-  { href: '/admin/users',    label: 'Сотрудники',    icon: UserEdit01Icon, feature: 'manage_users' },
+  { href: '/settings',       label: 'Настройки',     icon: Settings01Icon,       feature: 'manage_settings' },
+  { href: '/admin/users',    label: 'Сотрудники',    icon: UserEdit01Icon,       feature: 'manage_users' },
 ]
 
 interface SidebarProps {
@@ -178,7 +179,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 {/* Sub-items */}
                 {hasChildren && isExpanded && (
                   <div className="ml-4 mb-1 space-y-0.5">
-                    {item.children!.map((child) => {
+                    {item.children!.filter(c => !c.feature || canAccess(user?.role, c.feature)).map((child) => {
                       const childActive = pathname === child.href || (child.href !== '/' && child.href !== item.href && pathname.startsWith(child.href))
                       return (
                         <Link
