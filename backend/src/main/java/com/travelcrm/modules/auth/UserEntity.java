@@ -7,6 +7,8 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -34,6 +36,10 @@ public class UserEntity {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    @Column(name = "permissions_json", columnDefinition = "text")
+    @Convert(converter = PermissionsConverter.class)
+    private Map<String, Boolean> permissions = new HashMap<>();
 
     @Column(name = "is_active")
     private boolean active = true;

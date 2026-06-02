@@ -10,6 +10,7 @@ import java.util.UUID;
 
 @Data
 public class BookingRequest {
+    private UUID tourId;
     private UUID leadId;
 
     @NotNull
@@ -26,6 +27,7 @@ public class BookingRequest {
 
     private String country;
     private String departureCity;
+    private String pickupLocation;
 
     @NotNull
     private LocalDate departureDate;

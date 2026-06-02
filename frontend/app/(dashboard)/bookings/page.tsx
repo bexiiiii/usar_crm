@@ -7,7 +7,7 @@ import api from '@/lib/api'
 import { formatCurrency, formatDate, getDaysUntil } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { canAccess } from '@/lib/auth'
-import { Booking, PaginatedResponse } from '@/types'
+import { Booking, BookingMonthlySummary, PaginatedResponse } from '@/types'
 import { Ticket01Icon, Calendar01Icon, Search01Icon, FilterIcon, Alert01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 
@@ -48,12 +48,14 @@ export default function BookingsPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  const canDelete = canAccess(user?.role, 'delete_record')
-  const canViewCost = canAccess(user?.role, 'view_cost_price')
+  const canEdit = canAccess(user?.role, 'edit_record', user?.permissions)
+  const canDelete = canAccess(user?.role, 'delete_record', user?.permissions)
+  const canViewCost = canAccess(user?.role, 'view_cost_price', user?.permissions)
 
   const [status, setStatus] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
+  const summaryYear = new Date().getFullYear()
 
   const { data, isLoading } = useQuery<PaginatedResponse<Booking>>({
     queryKey: ['bookings', status, search, page],
@@ -66,6 +68,14 @@ export default function BookingsPage() {
       params.set('sort', 'createdAt,desc')
       const res = await api.get(`/bookings?${params}`)
       return res.data.data
+    },
+  })
+
+  const { data: monthlySummary } = useQuery<BookingMonthlySummary[]>({
+    queryKey: ['bookings', 'monthly-summary', summaryYear],
+    queryFn: async () => {
+      const res = await api.get(`/bookings/monthly-summary?year=${summaryYear}`)
+      return res.data.data ?? []
     },
   })
 
@@ -92,9 +102,9 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="bg-[#EEF0F8] min-h-screen p-6">
+    <div className="bg-[#EEF0F8] min-h-screen min-w-0 overflow-x-hidden p-6">
       {/* Page Header */}
-      <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between min-w-0">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Бронирования</h1>
           <p className="text-sm text-gray-500 mt-0.5">Всего: {data?.totalElements ?? 0}</p>
@@ -109,44 +119,71 @@ export default function BookingsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto_auto] gap-3 items-center min-w-0">
+        <div className="relative min-w-0">
           <Search01Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0) }}
             placeholder="Поиск по направлению, клиенту..."
-            className="pl-9 pr-4 py-2.5 border border-[#E2E8F4] rounded-xl text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="pl-9 pr-4 py-2.5 border border-[#E2E8F4] rounded-xl text-sm w-full min-w-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <FilterIcon size={16} className="text-gray-400" />
           <select
             value={status}
             onChange={(e) => { setStatus(e.target.value); setPage(0) }}
-            className="border border-[#E2E8F4] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className="border border-[#E2E8F4] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-w-[180px]"
           >
             {statusOptions.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 justify-start xl:justify-end min-w-0">
           <Calendar01Icon size={16} className="text-gray-400" />
           <input
             type="date"
-            className="border border-[#E2E8F4] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-[#E2E8F4] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           />
           <span className="text-gray-400 text-sm">—</span>
           <input
             type="date"
-            className="border border-[#E2E8F4] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-[#E2E8F4] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           />
         </div>
       </div>
 
+      <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 min-w-0">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Брони по месяцам</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Помесячная картина выездов за {summaryYear} год</p>
+          </div>
+          <span className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-medium">
+            {summaryYear}
+          </span>
+        </div>
+        <div className="overflow-x-auto pb-1">
+          <div className="grid min-w-[960px] grid-cols-12 gap-3">
+            {(monthlySummary ?? []).map((month) => (
+              <div
+                key={month.month}
+                className="rounded-2xl border border-[#E2E8F4] bg-[#F8FAFF] px-3 py-3"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{month.label}</p>
+                <p className="mt-2 text-2xl font-bold text-gray-900">{month.count}</p>
+                <p className="mt-1 text-xs text-gray-500">броней</p>
+                <p className="mt-3 text-xs font-medium text-blue-700">{formatCurrency(month.totalAmount || 0)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden min-w-0">
         {isLoading ? (
           <div className="p-8 space-y-3">
             {[...Array(6)].map((_, i) => (
@@ -169,17 +206,17 @@ export default function BookingsPage() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[1180px]">
                 <thead className="bg-gray-50 border-b border-slate-100">
                   <tr>
-                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Номер</th>
-                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Клиент</th>
-                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Направление</th>
-                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Выезд</th>
-                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Возврат</th>
-                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Туристы</th>
-                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Статус</th>
-                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Сумма</th>
+                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Номер</th>
+                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Клиент</th>
+                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Направление</th>
+                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Выезд</th>
+                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Возврат</th>
+                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Туристы</th>
+                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Статус</th>
+                    <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Сумма</th>
                     {canViewCost && <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Маржа</th>}
                     {user?.role === 'SUPER_ADMIN' && <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Менеджер</th>}
                     <th className="px-6 py-3.5" />
@@ -207,24 +244,30 @@ export default function BookingsPage() {
                           <p className="text-xs text-gray-400">{typeLabels[booking.type] || booking.type}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{formatDate(booking.departureDate)}</td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{booking.returnDate ? formatDate(booking.returnDate) : '—'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600 text-center">{booking.paxAdults + booking.paxChildren}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{formatDate(booking.departureDate)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{booking.returnDate ? formatDate(booking.returnDate) : '—'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600 text-center whitespace-nowrap">{booking.paxAdults + booking.paxChildren}</td>
                       <td className="px-6 py-4">
-                        <select
-                          value={booking.status}
-                          onChange={(e) => { e.stopPropagation(); statusMutation.mutate({ id: booking.id, status: e.target.value }) }}
-                          onClick={(e) => e.stopPropagation()}
-                          className={`text-xs font-medium rounded-full px-3 py-1 border-0 outline-none cursor-pointer ${statusColors[booking.status] || 'bg-gray-100 text-gray-600'}`}
-                        >
-                          {statusOptions.filter(o => o.value).map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </select>
+                        {canEdit ? (
+                          <select
+                            value={booking.status}
+                            onChange={(e) => { e.stopPropagation(); statusMutation.mutate({ id: booking.id, status: e.target.value }) }}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`text-xs font-medium rounded-full px-3 py-1 border-0 outline-none cursor-pointer ${statusColors[booking.status] || 'bg-gray-100 text-gray-600'}`}
+                          >
+                            {statusOptions.filter(o => o.value).map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className={`inline-flex text-xs font-medium rounded-full px-3 py-1 ${statusColors[booking.status] || 'bg-gray-100 text-gray-600'}`}>
+                            {statusLabels[booking.status] || booking.status}
+                          </span>
+                        )}
                       </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">{formatCurrency(booking.totalPrice, booking.currency)}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(booking.totalPrice, booking.currency)}</td>
                       {canViewCost && (
-                        <td className="px-6 py-4 text-sm font-semibold text-green-600">
+                        <td className="px-6 py-4 text-sm font-semibold text-green-600 whitespace-nowrap">
                           {booking.margin != null ? `+${formatCurrency(booking.margin)}` : '—'}
                         </td>
                       )}

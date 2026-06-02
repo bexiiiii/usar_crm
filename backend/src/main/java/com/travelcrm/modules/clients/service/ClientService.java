@@ -14,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,9 +28,6 @@ public class ClientService {
     private final UserRepository userRepository;
 
     public Page<ClientResponse> findAll(String search, String status, UUID managerId, Pageable pageable, UserPrincipal currentUser) {
-        if (currentUser.getRole() == Role.MANAGER) {
-            managerId = currentUser.getId();
-        }
         final UUID finalManagerId = managerId;
         Specification<ClientEntity> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -54,10 +50,6 @@ public class ClientService {
     public ClientResponse findById(UUID id, UserPrincipal currentUser) {
         ClientEntity client = clientRepository.findById(id)
             .orElseThrow(() -> new NotFoundException("Клиент не найден"));
-        if (currentUser.getRole() == Role.MANAGER &&
-            (client.getAssignedManager() == null || !client.getAssignedManager().getId().equals(currentUser.getId()))) {
-            throw new AccessDeniedException("Нет доступа");
-        }
         return toResponse(client);
     }
 
@@ -72,10 +64,6 @@ public class ClientService {
     public ClientResponse update(UUID id, ClientRequest request, UserPrincipal currentUser) {
         ClientEntity client = clientRepository.findById(id)
             .orElseThrow(() -> new NotFoundException("Клиент не найден"));
-        if (currentUser.getRole() == Role.MANAGER &&
-            (client.getAssignedManager() == null || !client.getAssignedManager().getId().equals(currentUser.getId()))) {
-            throw new AccessDeniedException("Нет доступа");
-        }
         applyRequest(client, request, currentUser);
         return toResponse(clientRepository.save(client));
     }
@@ -103,7 +91,10 @@ public class ClientService {
         client.setNotes(req.getNotes());
         UUID managerId = req.getAssignedManagerId();
         if (currentUser.getRole() == Role.MANAGER) {
-            managerId = currentUser.getId();
+            if (client.getId() == null && client.getAssignedManager() == null) {
+                userRepository.findById(currentUser.getId()).ifPresent(client::setAssignedManager);
+            }
+            return;
         }
         if (managerId != null) {
             UserEntity mgr = userRepository.findById(managerId).orElse(null);

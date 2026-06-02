@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
 public class CreateUserRequest {
     @NotBlank
@@ -20,4 +22,6 @@ public class CreateUserRequest {
 
     @NotNull
     private Role role;
+
+    private Map<String, Boolean> permissions;
 }

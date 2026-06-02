@@ -71,6 +71,7 @@ export interface Booking {
   destination: string
   country: string | null
   departureCity: string | null
+  pickupLocation: string | null
   departureDate: string
   returnDate: string | null
   paxAdults: number
@@ -91,6 +92,49 @@ export interface Booking {
   specialRequests: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface BookingMonthlySummary {
+  month: number
+  label: string
+  count: number
+  totalAmount: number
+}
+
+export interface TourBookingExportRow {
+  bookingId: string
+  bookingNumber: string
+  tourId: string
+  tourName: string
+  status: string
+  type: string
+  clientId: string
+  clientName: string
+  clientPhone: string | null
+  clientEmail: string | null
+  passportNumber: string | null
+  passportExpiry: string | null
+  dateOfBirth: string | null
+  assignedManagerName: string | null
+  destination: string
+  country: string | null
+  departureCity: string | null
+  pickupLocation: string | null
+  departureDate: string
+  returnDate: string | null
+  totalTourists: number
+  paxAdults: number
+  paxChildren: number
+  hotelName: string | null
+  mealPlan: string | null
+  tourOperator: string | null
+  supplierRef: string | null
+  totalPrice: number
+  paidAmount: number
+  remainingAmount: number
+  currency: string
+  notes: string | null
+  specialRequests: string | null
 }
 
 export interface Payment {
@@ -124,6 +168,7 @@ export interface Task {
   relatedBookingNumber: string | null
   relatedClientId: string | null
   relatedClientName: string | null
+  createdByName?: string | null
   dueDate: string | null
   completedAt: string | null
   createdAt: string
@@ -135,6 +180,7 @@ export interface User {
   email: string
   fullName: string
   role: 'SUPER_ADMIN' | 'MANAGER'
+  permissions?: Record<string, boolean>
   active: boolean
   createdAt: string
   bookingCount: number
@@ -166,6 +212,16 @@ export interface Tour {
   visaRequired: boolean
   insuranceIncluded: boolean
   notes: string | null
+  departureDates: string | null
+  locations: string | null
+  included: string | null
+  program: string | null
+  mealInfo: string | null
+  warnings: string | null
+  whatToBring: string | null
+  dressCode: string | null
+  transportNotes: string | null
+  averageCheck: string | null
   createdAt: string
   updatedAt: string
 }

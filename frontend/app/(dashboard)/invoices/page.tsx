@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { canAccess } from '@/lib/auth'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 import {
   Invoice01Icon,
@@ -30,6 +32,7 @@ interface Invoice {
   amount: number
   taxAmount: number
   totalAmount: number
+  taxPercent: number
   currency: string
   dueDate: string | null
   paidAt: string | null
@@ -59,7 +62,7 @@ interface InvoiceForm {
 
 const EMPTY_FORM: InvoiceForm = {
   clientId: '', bookingId: '', status: 'DRAFT',
-  amount: '', taxPercent: '0', currency: 'USD',
+  amount: '', taxPercent: '0', currency: 'KZT',
   dueDate: '', notes: '',
   items: [{ description: '', quantity: 1, unitPrice: 0, total: 0 }],
 }
@@ -80,6 +83,9 @@ const KPI_COLORS = ['#2B5BF0', '#EF4444', '#F59E0B', '#22C55E']
 
 export default function InvoicesPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canEdit = canAccess(user?.role, 'edit_record', user?.permissions)
+  const canDelete = canAccess(user?.role, 'delete_record', user?.permissions)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(0)
@@ -142,7 +148,13 @@ export default function InvoicesPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<InvoiceForm> }) =>
-      api.put(`/invoices/${id}`, data),
+      api.put(`/invoices/${id}`, {
+        ...data,
+        amount: data.amount !== undefined ? Number(data.amount) : undefined,
+        taxPercent: data.taxPercent !== undefined ? Number(data.taxPercent) : undefined,
+        clientId: data.clientId || null,
+        bookingId: data.bookingId || null,
+      }),
     onSuccess: () => {
       toast.success('Счёт обновлён')
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
@@ -184,6 +196,29 @@ export default function InvoicesPage() {
     setShowModal(true)
   }
 
+  function openEdit(invoice: Invoice) {
+    setEditingId(invoice.id)
+    setForm({
+      clientId: invoice.clientId || '',
+      bookingId: invoice.bookingId || '',
+      status: invoice.status,
+      amount: String(invoice.amount ?? 0),
+      taxPercent: String(invoice.taxPercent ?? 0),
+      currency: invoice.currency || 'KZT',
+      dueDate: invoice.dueDate || '',
+      notes: invoice.notes || '',
+      items: invoice.items?.length
+        ? invoice.items.map((item) => ({
+            description: item.description || '',
+            quantity: item.quantity || 1,
+            unitPrice: item.unitPrice || 0,
+            total: item.total || Number(item.quantity || 1) * Number(item.unitPrice || 0),
+          }))
+        : [{ description: '', quantity: 1, unitPrice: 0, total: 0 }],
+    })
+    setShowModal(true)
+  }
+
   function closeModal() {
     setShowModal(false)
     setEditingId(null)
@@ -215,6 +250,21 @@ export default function InvoicesPage() {
       updateMutation.mutate({ id: editingId, data: form })
     } else {
       createMutation.mutate(form)
+    }
+  }
+
+  async function downloadPdf(invoice: Invoice) {
+    try {
+      const res = await api.get(`/invoices/${invoice.id}/pdf`, { responseType: 'blob' })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `invoice-${invoice.invoiceNumber}.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Не удалось скачать PDF счёта')
     }
   }
 
@@ -367,9 +417,19 @@ export default function InvoicesPage() {
                         {statusLabels[inv.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-1 justify-end">
-                        {inv.status === 'DRAFT' && (
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center gap-1 justify-end">
+                        {canEdit && inv.status !== 'PAID' && (
+                          <button
+                            onClick={() => openEdit(inv)}
+                            title="Редактировать"
+                            className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                            style={{ color: '#2B5BF0' }}
+                          >
+                            <Edit01Icon size={14} />
+                          </button>
+                        )}
+                        {canEdit && inv.status === 'DRAFT' && (
                           <button
                             onClick={() => sendMutation.mutate(inv.id)}
                             title="Отправить"
@@ -379,7 +439,7 @@ export default function InvoicesPage() {
                             <SendingOrderIcon size={14} />
                           </button>
                         )}
-                        {inv.status === 'SENT' && (
+                        {canEdit && inv.status === 'SENT' && (
                           <button
                             onClick={() => markPaidMutation.mutate(inv.id)}
                             title="Отметить как оплачен"
@@ -390,21 +450,24 @@ export default function InvoicesPage() {
                           </button>
                         )}
                         <button
+                          onClick={() => downloadPdf(inv)}
                           title="Скачать PDF"
                           className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                           style={{ color: '#6B7A9A' }}
                         >
                           <Download01Icon size={14} />
                         </button>
-                        <button
-                          onClick={() => {
-                            if (confirm('Удалить счёт?')) deleteMutation.mutate(inv.id)
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                          style={{ color: '#EF4444' }}
-                        >
-                          <Delete01Icon size={14} />
-                        </button>
+                        {canDelete && (
+                          <button
+                            onClick={() => {
+                              if (confirm('Удалить счёт?')) deleteMutation.mutate(inv.id)
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                            style={{ color: '#EF4444' }}
+                          >
+                            <Delete01Icon size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

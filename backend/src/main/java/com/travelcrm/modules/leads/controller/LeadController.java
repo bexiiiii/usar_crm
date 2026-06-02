@@ -48,6 +48,7 @@ public class LeadController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LeadResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody LeadRequest request,
@@ -56,6 +57,7 @@ public class LeadController {
     }
 
     @PatchMapping("/{id}/stage")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LeadResponse>> updateStage(
             @PathVariable UUID id,
             @RequestBody Map<String, String> body) {

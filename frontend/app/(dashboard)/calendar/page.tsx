@@ -91,7 +91,7 @@ export default function CalendarPage() {
   const { data: tasksData } = useQuery({
     queryKey: ['calendar', 'tasks', year, month],
     queryFn: async () => {
-      const res = await api.get('/tasks?status=TODO&status=IN_PROGRESS&size=200')
+      const res = await api.get('/tasks?status=TODO,IN_PROGRESS&size=200')
       return res.data.data?.content ?? []
     },
   })
@@ -341,85 +341,93 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Selected date events */}
+          {/* Unified events widget */}
           <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E2E8F4' }}>
-            <div className="px-5 py-4 border-b" style={{ borderColor: '#E2E8F4' }}>
-              <h3 className="text-sm font-bold" style={{ color: '#1A2332' }}>
-                {selectedDate
-                  ? formatDate(selectedDate)
-                  : 'Выберите дату'}
-              </h3>
+            <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: '#E2E8F4' }}>
+              <h3 className="text-sm font-bold" style={{ color: '#1A2332' }}>Детали выбранной даты</h3>
+              <div className="flex items-center gap-2">
+                {selectedDate && selectedEvents.length > 0 ? (
+                  <span className="text-[11px] px-2 py-1 rounded-full font-medium" style={{ background: '#E8F0FF', color: '#2B5BF0' }}>
+                    {selectedEvents.length} событий
+                  </span>
+                ) : null}
+                <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: '#EEF0F8', color: '#6B7A9A' }}>
+                  {selectedDate ? formatDate(selectedDate) : 'Выберите дату'}
+                </span>
+              </div>
             </div>
-            {!selectedDate ? (
-              <div className="px-5 py-8 text-center">
-                <Calendar01Icon size={32} style={{ color: '#CBD5E1', margin: '0 auto 8px' }} />
-                <p className="text-sm" style={{ color: '#6B7A9A' }}>Кликните на дату для просмотра событий</p>
-              </div>
-            ) : selectedEvents.length === 0 ? (
-              <div className="px-5 py-8 text-center">
-                <p className="text-sm" style={{ color: '#6B7A9A' }}>Событий нет</p>
-              </div>
-            ) : (
-              <div className="divide-y" style={{ borderColor: '#F1F3F9' }}>
-                {selectedEvents.map((ev) => {
-                  const Icon = EVENT_ICONS[ev.type]
-                  return (
-                    <div key={ev.id} className="px-5 py-3 flex items-start gap-3">
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                        style={{ background: `${ev.color}18` }}
-                      >
-                        <Icon size={14} style={{ color: ev.color }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: '#1A2332' }}>{ev.title}</p>
-                        {ev.subtitle && (
-                          <p className="text-xs" style={{ color: '#6B7A9A' }}>{ev.subtitle}</p>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
 
-          {/* Upcoming events this week */}
-          <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E2E8F4' }}>
-            <div className="px-5 py-4 border-b" style={{ borderColor: '#E2E8F4' }}>
-              <h3 className="text-sm font-bold" style={{ color: '#1A2332' }}>Ближайшие события</h3>
-            </div>
             <div className="divide-y" style={{ borderColor: '#F1F3F9' }}>
-              {Object.entries(eventsByDate)
-                .filter(([date]) => date >= todayStr)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .slice(0, 6)
-                .flatMap(([date, events]) =>
-                  events.slice(0, 2).map((ev) => ({ ...ev, dateStr: date }))
-                )
-                .map((ev) => {
-                  const Icon = EVENT_ICONS[ev.type]
-                  return (
-                    <div key={ev.id} className="px-5 py-3 flex items-center gap-3">
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ background: `${ev.color}18` }}
-                      >
-                        <Icon size={14} style={{ color: ev.color }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate" style={{ color: '#1A2332' }}>{ev.title}</p>
-                        <p className="text-xs" style={{ color: '#6B7A9A' }}>{formatDate(ev.dateStr)}</p>
-                      </div>
+              <div className="p-5">
+                {!selectedDate ? (
+                  <div className="text-center py-2">
+                    <Calendar01Icon size={32} style={{ color: '#CBD5E1', margin: '0 auto 8px' }} />
+                    <p className="text-sm" style={{ color: '#6B7A9A' }}>Кликните на дату для просмотра событий</p>
+                  </div>
+                ) : selectedEvents.length === 0 ? (
+                  <div className="text-center py-2">
+                    <p className="text-sm" style={{ color: '#6B7A9A' }}>Событий нет</p>
+                  </div>
+                ) : (
+                  <div className="max-h-[24rem] space-y-3 overflow-y-auto pr-1">
+                    {selectedEvents.map((ev) => {
+                      const Icon = EVENT_ICONS[ev.type]
+                      return (
+                        <div key={ev.id} className="flex items-start gap-3 rounded-xl border border-gray-100 px-3 py-3">
+                          <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                            style={{ background: `${ev.color}18` }}
+                          >
+                            <Icon size={14} style={{ color: ev.color }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate" style={{ color: '#1A2332' }}>{ev.title}</p>
+                            {ev.subtitle && (
+                              <p className="text-xs" style={{ color: '#6B7A9A' }}>{ev.subtitle}</p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-5">
+                <h4 className="text-sm font-bold mb-3" style={{ color: '#1A2332' }}>Ближайшие события</h4>
+                <div className="space-y-2">
+                  {Object.entries(eventsByDate)
+                    .filter(([date]) => date >= todayStr)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .slice(0, 6)
+                    .flatMap(([date, events]) =>
+                      events.slice(0, 2).map((ev) => ({ ...ev, dateStr: date }))
+                    )
+                    .map((ev) => {
+                      const Icon = EVENT_ICONS[ev.type]
+                      return (
+                        <div key={ev.id} className="flex items-center gap-3 rounded-xl border border-gray-100 px-3 py-2.5">
+                          <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ background: `${ev.color}18` }}
+                          >
+                            <Icon size={14} style={{ color: ev.color }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate" style={{ color: '#1A2332' }}>{ev.title}</p>
+                            <p className="text-xs" style={{ color: '#6B7A9A' }}>{formatDate(ev.dateStr)}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  {Object.keys(eventsByDate).length === 0 && (
+                    <div className="text-center py-3">
+                      <Alert01Icon size={24} style={{ color: '#CBD5E1', margin: '0 auto 6px' }} />
+                      <p className="text-xs" style={{ color: '#6B7A9A' }}>Нет предстоящих событий</p>
                     </div>
-                  )
-                })}
-              {Object.keys(eventsByDate).length === 0 && (
-                <div className="px-5 py-6 text-center">
-                  <Alert01Icon size={24} style={{ color: '#CBD5E1', margin: '0 auto 6px' }} />
-                  <p className="text-xs" style={{ color: '#6B7A9A' }}>Нет предстоящих событий</p>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

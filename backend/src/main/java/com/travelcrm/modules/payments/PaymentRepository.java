@@ -13,4 +13,23 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, UUID> {
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM PaymentEntity p WHERE p.booking.id = :bookingId AND p.direction = 'INCOMING' AND p.status = 'COMPLETED'")
     BigDecimal sumPaidByBooking(@Param("bookingId") UUID bookingId);
+
+    @Query("""
+        SELECT COALESCE(SUM(p.amount), 0)
+        FROM PaymentEntity p
+        WHERE p.booking.id = :bookingId
+          AND p.direction = 'INCOMING'
+          AND p.status IN ('PENDING', 'COMPLETED')
+        """)
+    BigDecimal sumReservedIncomingByBooking(@Param("bookingId") UUID bookingId);
+
+    @Query("""
+        SELECT p.booking.id, COALESCE(SUM(p.amount), 0)
+        FROM PaymentEntity p
+        WHERE p.booking.id IN :bookingIds
+          AND p.direction = 'INCOMING'
+          AND p.status = 'COMPLETED'
+        GROUP BY p.booking.id
+        """)
+    List<Object[]> sumPaidByBookingIds(@Param("bookingIds") List<UUID> bookingIds);
 }

@@ -1,18 +1,16 @@
-FROM node:20-alpine AS base
+FROM mirror.gcr.io/library/node:20-alpine AS base
 WORKDIR /app
 COPY package.json ./
 RUN npm install --legacy-peer-deps
 COPY . .
 ARG NEXT_PUBLIC_API_URL=http://localhost:8080/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-RUN mkdir -p public && npm run build
+ENV NODE_OPTIONS=--max-old-space-size=512
+RUN rm -rf .next && mkdir -p public && npm run build && test -f .next/BUILD_ID
 
-FROM node:20-alpine AS runner
+FROM mirror.gcr.io/library/node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=base /app/.next ./.next
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/public ./public
+COPY --from=base /app /app
 EXPOSE 3000
 CMD ["npm", "start"]

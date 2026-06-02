@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -15,6 +16,7 @@ public class UserResponse {
     private String email;
     private String fullName;
     private String role;
+    private Map<String, Boolean> permissions;
     private boolean active;
     private Instant createdAt;
     private long bookingCount;

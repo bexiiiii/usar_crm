@@ -18,6 +18,7 @@ public class TaskResponse {
     private String relatedBookingNumber;
     private UUID relatedClientId;
     private String relatedClientName;
+    private String createdByName;
     private Instant dueDate;
     private Instant completedAt;
     private Instant createdAt;

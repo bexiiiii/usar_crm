@@ -21,4 +21,9 @@ public interface BookingRepository extends JpaRepository<BookingEntity, UUID>, J
 
     @Query("SELECT b FROM BookingEntity b WHERE b.client.id = :clientId ORDER BY b.createdAt DESC")
     List<BookingEntity> findByClientId(@Param("clientId") UUID clientId);
+
+    @Query("SELECT b FROM BookingEntity b WHERE b.tour.id = :tourId ORDER BY b.createdAt DESC")
+    List<BookingEntity> findByTourId(@Param("tourId") UUID tourId);
+
+    BookingEntity findByBookingNumberIgnoreCase(String bookingNumber);
 }

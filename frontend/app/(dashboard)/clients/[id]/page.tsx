@@ -5,9 +5,11 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import api from '@/lib/api'
+import { canAccess } from '@/lib/auth'
 import PageHeader from '@/components/layout/PageHeader'
 import StatusBadge from '@/components/ui/StatusBadge'
 import { Skeleton } from '@/components/ui/LoadingSkeleton'
+import { useAuthStore } from '@/store/authStore'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Client, Booking } from '@/types'
 import { ArrowLeft01Icon, Edit01Icon, FloppyDiskIcon, Cancel01Icon } from 'hugeicons-react'
@@ -19,6 +21,8 @@ export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canEdit = canAccess(user?.role, 'edit_record', user?.permissions)
   const [activeTab, setActiveTab] = useState(0)
   const [editing, setEditing] = useState(false)
 
@@ -74,7 +78,7 @@ export default function ClientDetailPage() {
               <ArrowLeft01Icon size={16} />
               Назад
             </button>
-            {!editing ? (
+            {canEdit && (!editing ? (
               <button onClick={startEdit} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-700">
                 <Edit01Icon size={16} />
                 Редактировать
@@ -90,7 +94,7 @@ export default function ClientDetailPage() {
                   Сохранить
                 </button>
               </>
-            )}
+            ))}
           </div>
         }
       />

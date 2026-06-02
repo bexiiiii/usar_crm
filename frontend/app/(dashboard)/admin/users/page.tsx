@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import * as XLSX from 'xlsx'
 import api from '@/lib/api'
 import PageHeader from '@/components/layout/PageHeader'
 import StatusBadge from '@/components/ui/StatusBadge'
@@ -11,14 +12,20 @@ import { TableSkeleton } from '@/components/ui/LoadingSkeleton'
 import { formatDate } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { User, PaginatedResponse } from '@/types'
-import { Add01Icon, UserRemove01Icon } from 'hugeicons-react'
+import { Add01Icon, ArrowDown01Icon, UserRemove01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
+
+const ROLE_LABELS: Record<User['role'], string> = {
+  MANAGER: 'Менеджер',
+  SUPER_ADMIN: 'Супер-админ',
+}
 
 export default function UsersPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const [showModal, setShowModal] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   useEffect(() => {
     if (user && user.role !== 'SUPER_ADMIN') router.push('/403')
@@ -61,19 +68,87 @@ export default function UsersPage() {
 
   const { register, handleSubmit, reset } = useForm()
 
+  async function handleExport() {
+    try {
+      setIsExporting(true)
+
+      const size = 200
+      let page = 0
+      let totalPages = 1
+      const users: User[] = []
+
+      do {
+        const res = await api.get(`/users?page=${page}&size=${size}&sort=createdAt,desc`)
+        const chunk: PaginatedResponse<User> = res.data.data
+        users.push(...chunk.content)
+        totalPages = chunk.totalPages
+        page += 1
+      } while (page < totalPages)
+
+      if (!users.length) {
+        toast.error('Нет пользователей для экспорта')
+        return
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(
+        users.map((u, index) => ({
+          '№': index + 1,
+          'ФИО': u.fullName,
+          Email: u.email,
+          Роль: ROLE_LABELS[u.role],
+          Статус: u.active ? 'Активен' : 'Деактивирован',
+          'Количество броней': u.bookingCount,
+          'Дата создания': formatDate(u.createdAt),
+          ID: u.id,
+        }))
+      )
+
+      worksheet['!cols'] = [
+        { wch: 6 },
+        { wch: 30 },
+        { wch: 32 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 18 },
+        { wch: 38 },
+      ]
+
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Пользователи')
+      XLSX.writeFile(workbook, `users_${new Date().toISOString().slice(0, 10)}.xlsx`)
+
+      toast.success('Экспорт пользователей готов')
+    } catch {
+      toast.error('Не удалось экспортировать пользователей')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Пользователи"
         subtitle={`Всего: ${data?.totalElements ?? 0}`}
         actions={
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700"
-          >
-            <Add01Icon size={16} />
-            Создать сотрудника
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="flex items-center gap-2 border border-gray-200 bg-white px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            >
+              <ArrowDown01Icon size={16} />
+              {isExporting ? 'Экспорт...' : 'Экспорт в Excel'}
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700"
+            >
+              <Add01Icon size={16} />
+              Создать сотрудника
+            </button>
+          </div>
         }
       />
 
@@ -114,8 +189,8 @@ export default function UsersPage() {
                       onChange={(e) => roleMutation.mutate({ id: u.id, role: e.target.value })}
                       className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
-                      <option value="MANAGER">Менеджер</option>
-                      <option value="SUPER_ADMIN">Супер-админ</option>
+                      <option value="MANAGER">{ROLE_LABELS.MANAGER}</option>
+                      <option value="SUPER_ADMIN">{ROLE_LABELS.SUPER_ADMIN}</option>
                     </select>
                   </td>
                   <td className="px-4 py-3">

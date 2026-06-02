@@ -46,8 +46,9 @@ public class TaskController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<ApiResponse<TaskResponse>> updateStatus(
             @PathVariable UUID id,
-            @RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(ApiResponse.success(taskService.updateStatus(id, body.get("status"))));
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(ApiResponse.success(taskService.updateStatus(id, body.get("status"), currentUser)));
     }
 
     @DeleteMapping("/{id}")

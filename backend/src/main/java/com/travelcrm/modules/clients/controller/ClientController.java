@@ -50,6 +50,7 @@ public class ClientController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<ClientResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody ClientRequest request,

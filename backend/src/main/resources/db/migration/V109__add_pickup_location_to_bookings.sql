@@ -1,0 +1,2 @@
+ALTER TABLE bookings
+ADD COLUMN IF NOT EXISTS pickup_location VARCHAR(255);

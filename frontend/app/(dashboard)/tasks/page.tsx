@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { canAccess } from '@/lib/auth'
 import PageHeader from '@/components/layout/PageHeader'
 import StatusBadge from '@/components/ui/StatusBadge'
 import { TableSkeleton } from '@/components/ui/LoadingSkeleton'
@@ -33,6 +34,8 @@ const statusOptions = [
 export default function TasksPage() {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
+  const canManageTasks = canAccess(user?.role, 'manage_tasks', user?.permissions)
+  const canAssign = canAccess(user?.role, 'assign_tasks', user?.permissions)
   const [priority, setPriority] = useState('')
   const [status, setStatus] = useState('TODO')
   const [showModal, setShowModal] = useState(false)
@@ -50,6 +53,15 @@ export default function TasksPage() {
       const res = await api.get(`/tasks?${params}`)
       return res.data.data
     },
+  })
+
+  const { data: staff } = useQuery({
+    queryKey: ['users', 'task-assignees'],
+    queryFn: async () => {
+      const res = await api.get('/users?size=100')
+      return res.data.data?.content ?? []
+    },
+    enabled: !!user && (user.role === 'SUPER_ADMIN' || canAssign),
   })
 
   const completeMutation = useMutation({
@@ -80,13 +92,15 @@ export default function TasksPage() {
         title="Задачи"
         subtitle={`Всего: ${data?.totalElements ?? 0}`}
         actions={
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700"
-          >
-            <Add01Icon size={16} />
-            Создать задачу
-          </button>
+          canManageTasks ? (
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700"
+            >
+              <Add01Icon size={16} />
+              Создать задачу
+            </button>
+          ) : null
         }
       />
 
@@ -115,23 +129,24 @@ export default function TasksPage() {
           <EmptyState
             message="Задач нет. Создайте задачу"
             icon={<CheckmarkSquare01Icon size={48} />}
-            action={
+            action={canManageTasks ? (
               <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-blue-700">
                 Создать задачу
               </button>
-            }
+            ) : undefined}
           />
         </div>
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="w-10 px-4 py-3" />
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Задача</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Приоритет</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Назначено</th>
-                {user?.role === 'SUPER_ADMIN' && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Менеджер</th>}
+                {user?.role === 'SUPER_ADMIN' && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Создал</th>}
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Срок</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Связь</th>
               </tr>
@@ -140,7 +155,7 @@ export default function TasksPage() {
               {data.content.map((task) => (
                 <tr key={task.id} className={`hover:bg-gray-50 ${isOverdue(task) ? 'bg-red-50' : ''}`}>
                   <td className="px-4 py-3">
-                    {task.status !== 'DONE' && (
+                    {(user?.role === 'SUPER_ADMIN' || task.assignedToId === user?.id || canManageTasks) && task.status !== 'DONE' && (
                       <button
                         onClick={() => completeMutation.mutate(task.id)}
                         className="w-6 h-6 rounded-full border-2 border-gray-300 hover:border-green-500 hover:bg-green-50 flex items-center justify-center transition-colors"
@@ -165,7 +180,7 @@ export default function TasksPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{task.assignedToName || '—'}</td>
                   {user?.role === 'SUPER_ADMIN' && (
-                    <td className="px-4 py-3 text-sm text-gray-600">{task.assignedToName || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{task.createdByName || '—'}</td>
                   )}
                   <td className="px-4 py-3">
                     <span className={`text-sm ${isOverdue(task) ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
@@ -180,6 +195,7 @@ export default function TasksPage() {
               ))}
             </tbody>
           </table>
+          </div>
 
           {data.totalPages > 1 && (
             <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
@@ -199,7 +215,15 @@ export default function TasksPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Создать задачу</h2>
-            <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
+            <form
+              onSubmit={handleSubmit((d) =>
+                createMutation.mutate({
+                  ...d,
+                  assignedTo: d.assignedTo || null,
+                })
+              )}
+              className="space-y-4"
+            >
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Название *</label>
                 <input {...register('title', { required: true })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -223,6 +247,25 @@ export default function TasksPage() {
                   <input {...register('dueDate')} type="datetime-local" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
+      {canAssign && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Назначить сотруднику</label>
+                  <select
+                    {...register('assignedTo')}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    defaultValue=""
+                  >
+                    <option value="">Без назначения</option>
+                    {(staff ?? [])
+                      .filter((s: { active: boolean }) => s.active)
+                      .map((s: { id: string; fullName: string }) => (
+                        <option key={s.id} value={s.id}>
+                          {s.fullName}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
               <div className="flex gap-3 justify-end">
                 <button type="button" onClick={() => { setShowModal(false); reset() }} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Отмена</button>
                 <button type="submit" disabled={createMutation.isPending} className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">

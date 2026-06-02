@@ -8,7 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -60,7 +62,21 @@ public class DocumentController {
                 .body(ApiResponse.success(documentService.generate(bookingId, type, currentUser)));
     }
 
+    @GetMapping("/{id}/download")
+    public ResponseEntity<byte[]> download(@PathVariable UUID id) {
+        DocumentService.DownloadFile file = documentService.download(id);
+        MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        if (file.contentType() != null && !file.contentType().isBlank()) {
+            mediaType = MediaType.parseMediaType(file.contentType());
+        }
+        return ResponseEntity.ok()
+            .contentType(mediaType)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.fileName() + "\"")
+            .body(file.bytes());
+    }
+
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         documentService.delete(id);
         return ResponseEntity.ok(ApiResponse.success(null));

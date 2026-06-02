@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { canAccess } from '@/lib/auth'
 import { formatDate } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 import {
   File01Icon,
@@ -39,6 +41,7 @@ const DOC_TYPES: Record<string, { label: string; color: string }> = {
   VISA: { label: 'Виза', color: '#06B6D4' },
   INSURANCE: { label: 'Страховка', color: '#EF4444' },
   TICKET: { label: 'Билет', color: '#0EA5E9' },
+  TOURIST_MEMO: { label: 'Памятка туриста', color: '#8B5CF6' },
   OTHER: { label: 'Другое', color: '#9CA3AF' },
 }
 
@@ -54,13 +57,20 @@ function FileIcon({ name }: { name: string }) {
 
 export default function DocumentsPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canDelete = canAccess(user?.role, 'delete_record', user?.permissions)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [page, setPage] = useState(0)
   const [showModal, setShowModal] = useState(false)
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [docForm, setDocForm] = useState({
     type: 'CONTRACT', clientId: '', bookingId: '', notes: '',
+  })
+  const [generateForm, setGenerateForm] = useState({
+    bookingId: '',
+    type: 'CONTRACT',
   })
 
   const { data, isLoading } = useQuery({
@@ -125,13 +135,29 @@ export default function DocumentsPage() {
 
   const generateMutation = useMutation({
     mutationFn: ({ bookingId, type }: { bookingId: string; type: string }) =>
-      api.post(`/documents/generate`, { bookingId, type }),
+      api.post(`/documents/generate?bookingId=${encodeURIComponent(bookingId)}&type=${encodeURIComponent(type)}`),
     onSuccess: () => {
       toast.success('Документ сгенерирован')
       queryClient.invalidateQueries({ queryKey: ['documents'] })
+      setShowGenerateModal(false)
     },
     onError: () => toast.error('Ошибка генерации'),
   })
+
+  async function downloadDocument(doc: Doc) {
+    try {
+      const res = await api.get(`/documents/${doc.id}/download`, { responseType: 'blob' })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = doc.fileName || `document-${doc.id}.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Не удалось скачать документ')
+    }
+  }
 
   const docs: Doc[] = data?.content ?? []
   const total = data?.totalElements ?? 0
@@ -142,6 +168,13 @@ export default function DocumentsPage() {
     acc[t] = docs.filter((d) => d.type === t).length
     return acc
   }, {} as Record<string, number>)
+
+  const generationTemplates = [
+    { type: 'CONTRACT', label: 'Договор с туристом', color: '#2B5BF0' },
+    { type: 'VOUCHER', label: 'Ваучер для отеля', color: '#22C55E' },
+    { type: 'INVOICE', label: 'Счёт на оплату', color: '#F59E0B' },
+    { type: 'TOURIST_MEMO', label: 'Памятка туриста', color: '#8B5CF6' },
+  ]
 
   return (
     <div className="space-y-5">
@@ -275,20 +308,22 @@ export default function DocumentsPage() {
 
                 <div className="mt-4 flex items-center gap-2">
                   <button
-                    onClick={() => toast('Функция скачивания будет доступна после настройки хранилища')}
+                    onClick={() => downloadDocument(doc)}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border transition-colors hover:bg-gray-50"
                     style={{ borderColor: '#E2E8F4', color: '#6B7A9A' }}
                   >
                     <Download01Icon size={13} />
                     Скачать
                   </button>
-                  <button
-                    onClick={() => { if (confirm('Удалить документ?')) deleteMutation.mutate(doc.id) }}
-                    className="p-2 rounded-xl border hover:bg-red-50 transition-colors"
-                    style={{ borderColor: '#E2E8F4', color: '#EF4444' }}
-                  >
-                    <Delete01Icon size={14} />
-                  </button>
+                  {canDelete && (
+                    <button
+                      onClick={() => { if (confirm('Удалить документ?')) deleteMutation.mutate(doc.id) }}
+                      className="p-2 rounded-xl border hover:bg-red-50 transition-colors"
+                      style={{ borderColor: '#E2E8F4', color: '#EF4444' }}
+                    >
+                      <Delete01Icon size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             )
@@ -311,17 +346,12 @@ export default function DocumentsPage() {
       <div className="bg-white rounded-2xl p-6" style={{ border: '1px solid #E2E8F4' }}>
         <h3 className="text-base font-bold mb-4" style={{ color: '#1A2332' }}>Генерация документов из бронирования</h3>
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-          {[
-            { type: 'CONTRACT', label: 'Договор с туристом', color: '#2B5BF0' },
-            { type: 'VOUCHER', label: 'Ваучер для отеля', color: '#22C55E' },
-            { type: 'INVOICE', label: 'Счёт на оплату', color: '#F59E0B' },
-            { type: 'TOURIST_MEMO', label: 'Памятка туриста', color: '#8B5CF6' },
-          ].map((tmpl) => (
+          {generationTemplates.map((tmpl) => (
             <button
               key={tmpl.type}
               onClick={() => {
-                const bookingId = prompt('Введите ID бронирования:')
-                if (bookingId) generateMutation.mutate({ bookingId, type: tmpl.type })
+                setGenerateForm({ bookingId: '', type: tmpl.type })
+                setShowGenerateModal(true)
               }}
               className="p-4 rounded-xl text-left hover:shadow-md transition-shadow"
               style={{ background: `${tmpl.color}0D`, border: `1px solid ${tmpl.color}33` }}
@@ -335,6 +365,76 @@ export default function DocumentsPage() {
           ))}
         </div>
       </div>
+
+      {/* Generate Modal */}
+      {showGenerateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowGenerateModal(false)} />
+          <div className="relative bg-white rounded-2xl w-full max-w-lg shadow-2xl" style={{ border: '1px solid #E2E8F4' }}>
+            <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: '#E2E8F4' }}>
+              <div>
+                <h2 className="text-base font-bold" style={{ color: '#1A2332' }}>Генерация документа</h2>
+                <p className="text-xs mt-0.5" style={{ color: '#6B7A9A' }}>Выберите бронирование и тип документа</p>
+              </div>
+              <button onClick={() => setShowGenerateModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Бронирование</label>
+                <select
+                  value={generateForm.bookingId}
+                  onChange={(e) => setGenerateForm({ ...generateForm, bookingId: e.target.value })}
+                  className="w-full border rounded-xl px-3 py-2 text-sm outline-none bg-white focus:ring-2 focus:ring-blue-200"
+                  style={{ borderColor: '#E2E8F4' }}
+                >
+                  <option value="">Выберите бронь</option>
+                  {(bookingsList ?? []).map((b: { id: string; bookingNumber: string; destination: string; clientName?: string }) => (
+                    <option key={b.id} value={b.id}>#{b.bookingNumber} — {b.destination}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Тип документа</label>
+                <select
+                  value={generateForm.type}
+                  onChange={(e) => setGenerateForm({ ...generateForm, type: e.target.value })}
+                  className="w-full border rounded-xl px-3 py-2 text-sm outline-none bg-white focus:ring-2 focus:ring-blue-200"
+                  style={{ borderColor: '#E2E8F4' }}
+                >
+                  {generationTemplates.map((tmpl) => (
+                    <option key={tmpl.type} value={tmpl.type}>{tmpl.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGenerateModal(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold border"
+                  style={{ borderColor: '#E2E8F4', color: '#6B7A9A' }}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!generateForm.bookingId) {
+                      toast.error('Выберите бронирование')
+                      return
+                    }
+                    generateMutation.mutate(generateForm)
+                  }}
+                  disabled={generateMutation.isPending}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ background: '#2B5BF0' }}
+                >
+                  {generateMutation.isPending ? 'Генерация...' : 'Сгенерировать'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upload Modal */}
       {showModal && (

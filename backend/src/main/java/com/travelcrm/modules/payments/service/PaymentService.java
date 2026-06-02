@@ -8,11 +8,13 @@ import com.travelcrm.modules.payments.PaymentEntity;
 import com.travelcrm.modules.payments.PaymentRepository;
 import com.travelcrm.modules.payments.dto.PaymentRequest;
 import com.travelcrm.modules.payments.dto.PaymentResponse;
+import com.travelcrm.shared.exception.BadRequestException;
 import com.travelcrm.shared.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -25,15 +27,43 @@ public class PaymentService {
     private final ClientRepository clientRepository;
     private final UserRepository userRepository;
 
-    public List<PaymentResponse> findByBooking(UUID bookingId) {
-        return paymentRepository.findByBookingId(bookingId).stream().map(this::toResponse).toList();
+    public List<PaymentResponse> findByBookingIdentifier(String bookingIdentifier) {
+        if (bookingIdentifier == null || bookingIdentifier.isBlank()) {
+            return List.of();
+        }
+
+        UUID bookingId = tryParseUuid(bookingIdentifier.trim());
+        if (bookingId != null) {
+            return paymentRepository.findByBookingId(bookingId).stream().map(this::toResponse).toList();
+        }
+
+        var booking = bookingRepository.findByBookingNumberIgnoreCase(bookingIdentifier.trim());
+        if (booking == null) {
+            return List.of();
+        }
+        return paymentRepository.findByBookingId(booking.getId()).stream().map(this::toResponse).toList();
+    }
+
+    private UUID tryParseUuid(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     @Transactional
     public PaymentResponse create(PaymentRequest req, UserPrincipal currentUser) {
+        var booking = bookingRepository.findById(req.getBookingId())
+            .orElseThrow(() -> new BadRequestException("Бронирование не найдено"));
+        var client = clientRepository.findById(req.getClientId())
+            .orElseThrow(() -> new BadRequestException("Клиент не найден"));
+
+        validateIncomingPaymentAmount(req, booking.getId(), booking.getTotalPrice());
+
         PaymentEntity payment = new PaymentEntity();
-        bookingRepository.findById(req.getBookingId()).ifPresent(payment::setBooking);
-        clientRepository.findById(req.getClientId()).ifPresent(payment::setClient);
+        payment.setBooking(booking);
+        payment.setClient(client);
         userRepository.findById(currentUser.getId()).ifPresent(payment::setCreatedBy);
         payment.setAmount(req.getAmount());
         payment.setCurrency(req.getCurrency() != null ? req.getCurrency() : "USD");
@@ -46,6 +76,27 @@ public class PaymentService {
         payment.setReference(req.getReference());
         payment.setNotes(req.getNotes());
         return toResponse(paymentRepository.save(payment));
+    }
+
+    private void validateIncomingPaymentAmount(PaymentRequest req, UUID bookingId, BigDecimal bookingTotal) {
+        if (!"INCOMING".equalsIgnoreCase(req.getDirection())) {
+            return;
+        }
+
+        String targetStatus = req.getStatus() != null ? req.getStatus() : "COMPLETED";
+        if ("FAILED".equalsIgnoreCase(targetStatus) || "REFUNDED".equalsIgnoreCase(targetStatus)) {
+            return;
+        }
+
+        BigDecimal reserved = paymentRepository.sumReservedIncomingByBooking(bookingId);
+        BigDecimal remaining = bookingTotal.subtract(reserved);
+
+        if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Бронь уже полностью оплачена");
+        }
+        if (req.getAmount().compareTo(remaining) > 0) {
+            throw new BadRequestException("Сумма платежа превышает остаток по брони");
+        }
     }
 
     @Transactional

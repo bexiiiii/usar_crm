@@ -2,13 +2,13 @@ package com.travelcrm.modules.auth.service;
 
 import com.travelcrm.config.JwtConfig;
 import com.travelcrm.modules.auth.UserRepository;
+import com.travelcrm.modules.auth.UserPermissions;
 import com.travelcrm.modules.auth.dto.AuthResponse;
 import com.travelcrm.modules.auth.dto.LoginRequest;
 import com.travelcrm.shared.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -26,6 +26,13 @@ public class AuthService {
             throw new BadRequestException("Неверный email или пароль");
         }
         String token = jwtConfig.generate(user.getId(), user.getEmail(), user.getRole().name());
-        return new AuthResponse(token, user.getId(), user.getEmail(), user.getFullName(), user.getRole().name());
+        return new AuthResponse(
+            token,
+            user.getId(),
+            user.getEmail(),
+            user.getFullName(),
+            user.getRole().name(),
+            UserPermissions.resolve(user.getRole(), user.getPermissions())
+        );
     }
 }

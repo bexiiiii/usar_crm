@@ -3,6 +3,7 @@ package com.travelcrm.modules.auth.service;
 import com.travelcrm.modules.auth.Role;
 import com.travelcrm.modules.auth.UserEntity;
 import com.travelcrm.modules.auth.UserRepository;
+import com.travelcrm.modules.auth.UserPermissions;
 import com.travelcrm.modules.auth.dto.CreateUserRequest;
 import com.travelcrm.modules.auth.dto.UpdateUserRequest;
 import com.travelcrm.modules.auth.dto.UserResponse;
@@ -15,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.UUID;
 
 @Service
@@ -37,11 +39,13 @@ public class UserService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email уже используется");
         }
+        Role role = request.getRole() != null ? request.getRole() : Role.MANAGER;
         UserEntity user = UserEntity.builder()
             .email(request.getEmail())
             .fullName(request.getFullName())
             .passwordHash(passwordEncoder.encode(request.getPassword()))
-            .role(request.getRole())
+            .role(role)
+            .permissions(new HashMap<>(UserPermissions.resolve(role, request.getPermissions())))
             .active(true)
             .build();
         return toResponse(userRepository.save(user));
@@ -54,6 +58,12 @@ public class UserService {
         if (request.getFullName() != null) user.setFullName(request.getFullName());
         if (request.getRole() != null) user.setRole(request.getRole());
         if (request.getActive() != null) user.setActive(request.getActive());
+        if (request.getRole() != null || request.getPermissions() != null) {
+            user.setPermissions(new HashMap<>(UserPermissions.resolve(
+                user.getRole(),
+                request.getPermissions() != null ? request.getPermissions() : user.getPermissions()
+            )));
+        }
         return toResponse(userRepository.save(user));
     }
 
@@ -62,6 +72,7 @@ public class UserService {
         UserEntity user = userRepository.findById(id)
             .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
         user.setRole(role);
+        user.setPermissions(new HashMap<>(UserPermissions.resolve(role, user.getPermissions())));
         return toResponse(userRepository.save(user));
     }
 
@@ -79,6 +90,7 @@ public class UserService {
             u.getEmail(),
             u.getFullName(),
             u.getRole().name(),
+            new HashMap<>(UserPermissions.resolve(u.getRole(), u.getPermissions())),
             u.isActive(),
             u.getCreatedAt(),
             0

@@ -1,6 +1,9 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import api from '@/lib/api'
 import {
   Search01Icon,
   Notification03Icon,
@@ -24,7 +27,7 @@ const routeLabels: Record<string, string> = {
   '/calendar':       'Календарь',
   '/analytics':      'Аналитика',
   '/reports':        'Отчёты',
-  '/communications': 'Коммуникации',
+  '/communications': 'Уведомления',
   '/settings':       'Настройки',
   '/admin/users':    'Сотрудники',
 }
@@ -39,46 +42,68 @@ function getPageLabel(pathname: string): string {
 
 interface HeaderProps {
   onMenuClick: () => void
+  sidebarOpen?: boolean
   title?: string
 }
 
-export default function Header({ onMenuClick, title }: HeaderProps) {
+export default function Header({ onMenuClick, sidebarOpen = false, title }: HeaderProps) {
   const user = useAuthStore((s) => s.user)
   const pathname = usePathname()
+  const router = useRouter()
   const pageLabel = title || getPageLabel(pathname)
+
+  const { data: notificationStats } = useQuery<{ count?: number }>({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: async () => {
+      const res = await api.get('/notifications/unread-count')
+      return res.data.data
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  })
+
+  const unreadCount = Number(notificationStats?.count ?? 0)
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between px-6 bg-white border-b"
+      className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b bg-white px-3 sm:px-4 lg:px-6"
       style={{
         height: '64px',
         borderColor: '#E2E8F4',
         boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)',
       }}
     >
-      {/* Left: mobile menu + breadcrumb */}
-      <div className="flex items-center gap-3">
+      {/* Left: menu + breadcrumb */}
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           onClick={onMenuClick}
-          className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-gray-100 lg:hidden"
           style={{ color: '#6B7A9A' }}
+          aria-label="Переключить меню"
+          aria-expanded={sidebarOpen}
+          aria-controls="app-sidebar"
         >
           <Menu01Icon size={20} />
         </button>
-        <div className="flex items-center gap-2 text-sm">
-          <span style={{ color: '#6B7A9A' }}>Usar Travel CRM</span>
-          <span style={{ color: '#C4CCDB' }}>/</span>
-          <span className="font-semibold" style={{ color: '#1A2332' }}>
+        <div className="flex min-w-0 items-center gap-2 text-sm">
+          <span className="hidden shrink-0 sm:inline" style={{ color: '#6B7A9A' }}>
+            Usar Travel CRM
+          </span>
+          <span className="hidden shrink-0 sm:inline" style={{ color: '#C4CCDB' }}>
+            /
+          </span>
+          <span className="truncate font-semibold" style={{ color: '#1A2332' }}>
             {pageLabel}
           </span>
         </div>
       </div>
 
       {/* Right: actions + user */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 sm:gap-1">
         {/* Search */}
         <button
-          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          onClick={() => router.push('/clients')}
+          className="hidden h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-gray-100 sm:flex"
           style={{ color: '#6B7A9A' }}
           aria-label="Поиск"
         >
@@ -87,7 +112,8 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
 
         {/* Messages */}
         <button
-          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          onClick={() => router.push('/communications')}
+          className="hidden h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-gray-100 sm:flex"
           style={{ color: '#6B7A9A' }}
           aria-label="Сообщения"
         >
@@ -96,19 +122,22 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
 
         {/* Notifications */}
         <button
+          onClick={() => router.push('/communications')}
           className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
           style={{ color: '#6B7A9A' }}
           aria-label="Уведомления"
         >
           <Notification03Icon size={18} />
-          <span
-            className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-            style={{ backgroundColor: '#EF4444' }}
-          />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </button>
 
         {/* Settings */}
         <button
+          onClick={() => router.push('/settings')}
           className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
           style={{ color: '#6B7A9A' }}
           aria-label="Настройки"
@@ -118,12 +147,12 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
 
         {/* Separator */}
         <div
-          className="w-px h-6 mx-2"
+          className="mx-1 hidden h-6 w-px sm:mx-2 sm:block"
           style={{ backgroundColor: '#E2E8F4' }}
         />
 
         {/* User */}
-        <button className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+        <button className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-gray-100 sm:gap-2.5 sm:px-2">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
             style={{ backgroundColor: '#2B63EB' }}

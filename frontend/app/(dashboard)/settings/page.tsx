@@ -1,6 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import api from '@/lib/api'
+import { ACCESS_FEATURES, ROLE_DEFAULT_PERMISSIONS } from '@/lib/auth'
+import { useAuthStore } from '@/store/authStore'
+import { PaginatedResponse, User } from '@/types'
 import toast from 'react-hot-toast'
 import {
   Settings01Icon,
@@ -8,21 +13,93 @@ import {
   Notification03Icon,
   LockIcon,
   PaintBoardIcon,
-  GlobeIcon,
   Invoice01Icon,
-  UserGroupIcon,
+  ShieldKeyIcon,
 } from 'hugeicons-react'
 
-type TabId = 'company' | 'notifications' | 'security' | 'integrations' | 'documents' | 'appearance'
+type TabId = 'company' | 'notifications' | 'security' | 'documents' | 'appearance' | 'access'
 
 const TABS: Array<{ id: TabId; label: string; icon: React.ElementType }> = [
   { id: 'company', label: 'Компания', icon: Building01Icon },
   { id: 'notifications', label: 'Уведомления', icon: Notification03Icon },
   { id: 'security', label: 'Безопасность', icon: LockIcon },
-  { id: 'integrations', label: 'Интеграции', icon: GlobeIcon },
   { id: 'documents', label: 'Документы', icon: Invoice01Icon },
   { id: 'appearance', label: 'Оформление', icon: PaintBoardIcon },
+  { id: 'access', label: 'Доступы', icon: ShieldKeyIcon },
 ]
+
+const DEFAULT_COMPANY = {
+  name: 'Usar Travel Agency',
+  legalName: 'ТОО «Usar Travel»',
+  bin: '',
+  phone: '+7 (777) 000-00-00',
+  email: 'info@usartravel.kz',
+  address: 'г. Алматы, ул. Абая, 1',
+  website: 'https://usartravel.kz',
+  currency: 'KZT',
+  timezone: 'Asia/Almaty',
+  language: 'ru',
+  workStart: '09:00',
+  workEnd: '18:00',
+}
+
+const DEFAULT_NOTIFICATIONS = {
+  emailNewBooking: true,
+  emailPaymentDue: true,
+  emailClientBirthday: true,
+  emailLeadAssigned: true,
+  smsNewBooking: false,
+  smsPaymentReminder: true,
+  telegramBotEnabled: false,
+  overdueAlerts: true,
+  departureDays: '3',
+  paymentDeadlineDays: '5',
+  passportExpireDays: '180',
+}
+
+const DEFAULT_SECURITY = {
+  twoFactor: false,
+  sessionTimeout: '480',
+  ipRestriction: false,
+  allowedIPs: '',
+  passwordMinLength: '8',
+  requireSpecialChars: true,
+}
+
+const DEFAULT_DOCS = {
+  companyLogo: '',
+  contractHeader: 'Настоящий договор заключён между:',
+  contractFooter: '',
+  voucherHeader: '',
+  invoicePrefix: 'INV',
+  invoiceStartNumber: '1001',
+  taxPercent: '12',
+  showTax: true,
+}
+
+const DEFAULT_APPEARANCE = {
+  primaryColor: '#2B5BF0',
+  accentColor: '#22C55E',
+  companyName: 'Usar Travel CRM',
+  sidebarDark: true,
+  compactMode: false,
+  showAvatars: true,
+}
+
+type SettingsPayload = {
+  company: typeof DEFAULT_COMPANY
+  notifications: typeof DEFAULT_NOTIFICATIONS
+  security: typeof DEFAULT_SECURITY
+  documents: typeof DEFAULT_DOCS
+  appearance: typeof DEFAULT_APPEARANCE
+}
+
+function mergeSettings<T extends Record<string, unknown>>(base: T, incoming?: Record<string, unknown> | null): T {
+  return {
+    ...base,
+    ...(incoming ?? {}),
+  } as T
+}
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -82,90 +159,114 @@ function InputField({ label, value, onChange, placeholder, type = 'text' }: {
 }
 
 export default function SettingsPage() {
+  const queryClient = useQueryClient()
+  const currentUser = useAuthStore((s) => s.user)
   const [activeTab, setActiveTab] = useState<TabId>('company')
+  const [selectedAccessUserId, setSelectedAccessUserId] = useState('')
+  const [accessDraft, setAccessDraft] = useState<Record<string, boolean>>({})
 
   // Company state
-  const [company, setCompany] = useState({
-    name: 'Usar Travel Agency',
-    legalName: 'ТОО «Usar Travel»',
-    bin: '',
-    phone: '+7 (777) 000-00-00',
-    email: 'info@usartravel.kz',
-    address: 'г. Алматы, ул. Абая, 1',
-    website: 'https://usartravel.kz',
-    currency: 'USD',
-    timezone: 'Asia/Almaty',
-    language: 'ru',
-    workStart: '09:00',
-    workEnd: '18:00',
-  })
+  const [company, setCompany] = useState(DEFAULT_COMPANY)
 
   // Notifications state
-  const [notif, setNotif] = useState({
-    emailNewBooking: true,
-    emailPaymentDue: true,
-    emailClientBirthday: true,
-    emailLeadAssigned: true,
-    smsNewBooking: false,
-    smsPaymentReminder: true,
-    telegramBotEnabled: false,
-    overdueAlerts: true,
-    departureDays: '3',
-    paymentDeadlineDays: '5',
-    passportExpireDays: '180',
-  })
+  const [notif, setNotif] = useState(DEFAULT_NOTIFICATIONS)
 
   // Security state
-  const [security, setSecurity] = useState({
-    twoFactor: false,
-    sessionTimeout: '480',
-    ipRestriction: false,
-    allowedIPs: '',
-    passwordMinLength: '8',
-    requireSpecialChars: true,
-  })
-
-  // Integrations
-  const [integrations, setIntegrations] = useState({
-    whatsappEnabled: false,
-    whatsappToken: '',
-    telegramBotToken: '',
-    smsProvider: 'none',
-    smsApiKey: '',
-    emailProvider: 'smtp',
-    smtpHost: '',
-    smtpPort: '587',
-    smtpUser: '',
-    smtpPass: '',
-    googleCalendarSync: false,
-    stripeKey: '',
-    kaspiKey: '',
-  })
+  const [security, setSecurity] = useState(DEFAULT_SECURITY)
 
   // Document settings
-  const [docs, setDocs] = useState({
-    companyLogo: '',
-    contractHeader: 'Настоящий договор заключён между:',
-    contractFooter: '',
-    voucherHeader: '',
-    invoicePrefix: 'INV',
-    invoiceStartNumber: '1001',
-    taxPercent: '12',
-    showTax: true,
-  })
+  const [docs, setDocs] = useState(DEFAULT_DOCS)
 
   // Appearance
-  const [appearance, setAppearance] = useState({
-    primaryColor: '#2B5BF0',
-    accentColor: '#22C55E',
-    companyName: 'Usar Travel CRM',
-    sidebarDark: true,
-    compactMode: false,
-    showAvatars: true,
+  const [appearance, setAppearance] = useState(DEFAULT_APPEARANCE)
+
+  const { data: settingsData, isLoading: isSettingsLoading } = useQuery<SettingsPayload>({
+    queryKey: ['settings', 'config'],
+    queryFn: async () => {
+      const res = await api.get('/settings')
+      return res.data.data
+    },
+    enabled: !!currentUser,
+  })
+
+  const { data: usersData } = useQuery<PaginatedResponse<User>>({
+    queryKey: ['settings', 'users'],
+    queryFn: async () => {
+      const res = await api.get('/users?size=100')
+      return res.data.data
+    },
+    enabled: activeTab === 'access',
+  })
+
+  const users = usersData?.content ?? []
+  const selectedUser = users.find((u) => u.id === selectedAccessUserId) ?? users[0] ?? null
+
+  useEffect(() => {
+    if (!selectedAccessUserId && users.length > 0) {
+      setSelectedAccessUserId(users[0].id)
+    }
+  }, [selectedAccessUserId, users])
+
+  useEffect(() => {
+    if (!settingsData) return
+    setCompany(mergeSettings(DEFAULT_COMPANY, settingsData.company))
+    setNotif(mergeSettings(DEFAULT_NOTIFICATIONS, settingsData.notifications))
+    setSecurity(mergeSettings(DEFAULT_SECURITY, settingsData.security))
+    setDocs(mergeSettings(DEFAULT_DOCS, settingsData.documents))
+    setAppearance(mergeSettings(DEFAULT_APPEARANCE, settingsData.appearance))
+  }, [settingsData])
+
+  useEffect(() => {
+    if (!selectedUser) return
+    setAccessDraft({
+      ...ROLE_DEFAULT_PERMISSIONS[selectedUser.role],
+      ...(selectedUser.permissions ?? {}),
+    })
+  }, [selectedUser?.id, selectedUser?.role, selectedUser?.permissions])
+
+  const saveAccessMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedUser) return null
+      const res = await api.put(`/users/${selectedUser.id}`, {
+        permissions: accessDraft,
+      })
+      return res.data.data as User
+    },
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['settings', 'users'] })
+      toast.success('Доступы сохранены')
+      if (updated && currentUser && updated.id === currentUser.id) {
+        const token = useAuthStore.getState().token || localStorage.getItem('token') || ''
+        useAuthStore.getState().setAuth({
+          ...currentUser,
+          permissions: updated.permissions,
+        }, token)
+      }
+    },
+    onError: () => toast.error('Не удалось сохранить доступы'),
+  })
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: async () => {
+      const payload: SettingsPayload = {
+        company,
+        notifications: notif,
+        security,
+        documents: docs,
+        appearance,
+      }
+      const res = await api.put('/settings', payload)
+      return res.data.data as SettingsPayload
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData(['settings', 'config'], saved)
+      toast.success('Настройки сохранены')
+    },
+    onError: () => toast.error('Не удалось сохранить настройки'),
   })
 
   function handleSave() {
-    toast.success('Настройки сохранены')
+    saveSettingsMutation.mutate()
   }
 
   return (
@@ -183,10 +284,11 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={handleSave}
+          disabled={saveSettingsMutation.isPending || isSettingsLoading}
           className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity"
           style={{ background: '#2B5BF0' }}
         >
-          Сохранить изменения
+          {saveSettingsMutation.isPending ? 'Сохранение...' : 'Сохранить изменения'}
         </button>
       </div>
 
@@ -366,39 +468,6 @@ export default function SettingsPage() {
             </>
           )}
 
-          {activeTab === 'integrations' && (
-            <>
-              <SectionBlock title="WhatsApp Business API">
-                <SettingRow label="WhatsApp интеграция" description="Отправка сообщений клиентам через WhatsApp">
-                  <Toggle checked={integrations.whatsappEnabled} onChange={(v) => setIntegrations({ ...integrations, whatsappEnabled: v })} />
-                </SettingRow>
-                {integrations.whatsappEnabled && (
-                  <InputField label="API Token" value={integrations.whatsappToken} onChange={(v) => setIntegrations({ ...integrations, whatsappToken: v })} placeholder="Bearer token..." />
-                )}
-              </SectionBlock>
-
-              <SectionBlock title="Telegram Bot">
-                <InputField label="Telegram Bot Token" value={integrations.telegramBotToken} onChange={(v) => setIntegrations({ ...integrations, telegramBotToken: v })} placeholder="1234567890:AAAA..." />
-              </SectionBlock>
-
-              <SectionBlock title="Email (SMTP)">
-                <div className="grid grid-cols-2 gap-4">
-                  <InputField label="SMTP Host" value={integrations.smtpHost} onChange={(v) => setIntegrations({ ...integrations, smtpHost: v })} placeholder="smtp.gmail.com" />
-                  <InputField label="SMTP Port" value={integrations.smtpPort} onChange={(v) => setIntegrations({ ...integrations, smtpPort: v })} placeholder="587" />
-                  <InputField label="Username" value={integrations.smtpUser} onChange={(v) => setIntegrations({ ...integrations, smtpUser: v })} />
-                  <InputField label="Password" type="password" value={integrations.smtpPass} onChange={(v) => setIntegrations({ ...integrations, smtpPass: v })} />
-                </div>
-              </SectionBlock>
-
-              <SectionBlock title="Платёжные системы">
-                <div className="grid grid-cols-2 gap-4">
-                  <InputField label="Kaspi Pay API Key" value={integrations.kaspiKey} onChange={(v) => setIntegrations({ ...integrations, kaspiKey: v })} placeholder="pk_..." />
-                  <InputField label="Stripe API Key" value={integrations.stripeKey} onChange={(v) => setIntegrations({ ...integrations, stripeKey: v })} placeholder="sk_live_..." />
-                </div>
-              </SectionBlock>
-            </>
-          )}
-
           {activeTab === 'documents' && (
             <>
               <SectionBlock title="Параметры счетов">
@@ -436,6 +505,88 @@ export default function SettingsPage() {
                 </div>
               </SectionBlock>
             </>
+          )}
+
+          {activeTab === 'access' && (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+              <div className="xl:col-span-1 bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E2E8F4' }}>
+                <div className="px-6 py-4 border-b" style={{ borderColor: '#E2E8F4' }}>
+                  <h3 className="text-sm font-bold" style={{ color: '#1A2332' }}>Сотрудники</h3>
+                </div>
+                <div className="max-h-[520px] overflow-y-auto divide-y" style={{ borderColor: '#F1F3F9' }}>
+                  {users.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => setSelectedAccessUserId(u.id)}
+                      className="w-full px-5 py-4 text-left transition-colors hover:bg-gray-50"
+                      style={{ background: selectedAccessUserId === u.id ? '#EEF0F8' : '#fff' }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: '#1A2332' }}>{u.fullName}</p>
+                          <p className="text-xs mt-0.5" style={{ color: '#6B7A9A' }}>{u.email}</p>
+                        </div>
+                        <span className="text-xs rounded-full px-2 py-1 font-semibold" style={{ background: '#EEF0F8', color: '#2B5BF0' }}>
+                          {u.role === 'SUPER_ADMIN' ? 'Супер-админ' : 'Менеджер'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="xl:col-span-2">
+                <SectionBlock title="Управление доступами">
+                  {!selectedUser ? (
+                    <div className="py-8 text-center text-sm" style={{ color: '#6B7A9A' }}>Выберите сотрудника</div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: '#1A2332' }}>{selectedUser.fullName}</p>
+                          <p className="text-xs mt-0.5" style={{ color: '#6B7A9A' }}>{selectedUser.email}</p>
+                        </div>
+                        <button
+                          onClick={() => saveAccessMutation.mutate()}
+                          disabled={saveAccessMutation.isPending}
+                          className="rounded-xl bg-[#2B5BF0] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                        >
+                          {saveAccessMutation.isPending ? 'Сохранение...' : 'Сохранить доступы'}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                        {ACCESS_FEATURES.map((feature) => {
+                          const checked = accessDraft[feature.key] ?? false
+                          return (
+                            <button
+                              key={feature.key}
+                              type="button"
+                              onClick={() => setAccessDraft((prev) => ({ ...prev, [feature.key]: !checked }))}
+                              className="rounded-2xl border p-4 text-left transition-colors hover:bg-gray-50"
+                              style={{
+                                borderColor: checked ? '#2B5BF0' : '#E2E8F4',
+                                background: checked ? '#EEF0F8' : '#fff',
+                              }}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold" style={{ color: '#1A2332' }}>{feature.label}</p>
+                                  <p className="text-xs mt-1" style={{ color: '#6B7A9A' }}>{feature.description}</p>
+                                </div>
+                                <span className={`text-xs font-bold ${checked ? 'text-blue-600' : 'text-gray-400'}`}>
+                                  {checked ? 'Вкл' : 'Выкл'}
+                                </span>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+                </SectionBlock>
+              </div>
+            </div>
           )}
 
           {activeTab === 'appearance' && (

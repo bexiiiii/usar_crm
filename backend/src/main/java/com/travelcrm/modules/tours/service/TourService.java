@@ -7,16 +7,20 @@ import com.travelcrm.modules.tours.dto.TourResponse;
 import com.travelcrm.shared.exception.NotFoundException;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TourService {
@@ -69,6 +73,13 @@ public class TourService {
         tourRepository.deleteById(id);
     }
 
+    @Scheduled(cron = "0 0 2 * * *")
+    @Transactional
+    public void autoArchiveExpiredTours() {
+        int count = tourRepository.archiveExpiredTours(LocalDate.now());
+        if (count > 0) log.info("Auto-archived {} expired tours", count);
+    }
+
     private void mapFields(TourEntity tour, TourRequest req) {
         tour.setName(req.getName());
         tour.setDescription(req.getDescription());
@@ -92,6 +103,16 @@ public class TourService {
         tour.setVisaRequired(req.isVisaRequired());
         tour.setInsuranceIncluded(req.isInsuranceIncluded());
         tour.setNotes(req.getNotes());
+        tour.setLocations(req.getLocations());
+        tour.setIncluded(req.getIncluded());
+        tour.setProgram(req.getProgram());
+        tour.setWarnings(req.getWarnings());
+        tour.setWhatToBring(req.getWhatToBring());
+        tour.setDressCode(req.getDressCode());
+        tour.setTransportNotes(req.getTransportNotes());
+        tour.setMealInfo(req.getMealInfo());
+        tour.setDepartureDates(req.getDepartureDates());
+        tour.setAverageCheck(req.getAverageCheck());
     }
 
     private TourResponse toResponse(TourEntity t) {
@@ -121,6 +142,16 @@ public class TourService {
         r.setVisaRequired(t.isVisaRequired());
         r.setInsuranceIncluded(t.isInsuranceIncluded());
         r.setNotes(t.getNotes());
+        r.setLocations(t.getLocations());
+        r.setIncluded(t.getIncluded());
+        r.setProgram(t.getProgram());
+        r.setWarnings(t.getWarnings());
+        r.setWhatToBring(t.getWhatToBring());
+        r.setDressCode(t.getDressCode());
+        r.setTransportNotes(t.getTransportNotes());
+        r.setMealInfo(t.getMealInfo());
+        r.setDepartureDates(t.getDepartureDates());
+        r.setAverageCheck(t.getAverageCheck());
         r.setCreatedAt(t.getCreatedAt());
         r.setUpdatedAt(t.getUpdatedAt());
         return r;

@@ -10,8 +10,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -50,24 +53,37 @@ public class InvoiceController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> update(@PathVariable UUID id,
                                                                 @Valid @RequestBody InvoiceRequest req) {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.update(id, req)));
     }
 
     @PatchMapping("/{id}/send")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> send(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.send(id)));
     }
 
     @PatchMapping("/{id}/paid")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> markPaid(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.markPaid(id)));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         invoiceService.delete(id);
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
+        InvoiceService.PdfFile pdf = invoiceService.generatePdf(id);
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + pdf.fileName() + "\"")
+            .body(pdf.bytes());
     }
 }

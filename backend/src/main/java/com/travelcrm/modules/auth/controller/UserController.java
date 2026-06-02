@@ -21,7 +21,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('SUPER_ADMIN')")
+@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('manage_users')")
 public class UserController {
     private final UserService userService;
 

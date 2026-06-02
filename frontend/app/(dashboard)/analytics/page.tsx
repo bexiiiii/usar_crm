@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart,
@@ -134,7 +135,8 @@ function CustomBarTooltip({
 
 export default function AnalyticsPage() {
   const { user } = useAuthStore()
-  const isSuperAdmin = canAccess(user?.role, 'view_all_managers')
+  const isSuperAdmin = canAccess(user?.role, 'view_all_managers', user?.permissions)
+  const [activePanel, setActivePanel] = useState<'destinations' | 'managers' | null>(null)
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ['analytics', 'dashboard'],
@@ -155,7 +157,7 @@ export default function AnalyticsPage() {
   const { data: destinations } = useQuery<Array<{ destination: string; count: number }>>({
     queryKey: ['analytics', 'destinations'],
     queryFn: async () => {
-      const res = await api.get('/analytics/top-destinations?limit=10')
+      const res = await api.get('/analytics/top-destinations?limit=50')
       return res.data.data
     },
   })
@@ -177,6 +179,8 @@ export default function AnalyticsPage() {
   }))
 
   const maxDestCount = destinations?.[0]?.count ?? 1
+  const destinationRows = destinations ?? []
+  const managerRows = managers ?? []
 
   return (
     <div className="space-y-6" style={{ background: '#EEF0F8', minHeight: '100vh' }}>
@@ -273,15 +277,18 @@ export default function AnalyticsPage() {
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-base font-semibold text-gray-900">Топ направления</h2>
-            <button className="text-sm text-blue-600 hover:underline font-medium">
+            <button
+              onClick={() => setActivePanel('destinations')}
+              className="text-sm text-blue-600 hover:underline font-medium"
+            >
               Смотреть всё
             </button>
           </div>
-          {!destinations?.length ? (
+          {!destinationRows.length ? (
             <p className="text-gray-400 text-sm text-center py-12">Данных нет</p>
           ) : (
             <div className="p-6 space-y-4">
-              {destinations.map((d, i) => (
+              {destinationRows.slice(0, 5).map((d, i) => (
                 <div key={d.destination} className="flex items-center gap-3">
                   <span className="text-xs text-gray-400 w-4 text-right font-medium">{i + 1}</span>
                   <div className="flex-1 min-w-0">
@@ -311,7 +318,10 @@ export default function AnalyticsPage() {
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-base font-semibold text-gray-900">Эффективность менеджеров</h2>
             {isSuperAdmin && (
-              <button className="text-sm text-blue-600 hover:underline font-medium">
+              <button
+                onClick={() => setActivePanel('managers')}
+                className="text-sm text-blue-600 hover:underline font-medium"
+              >
                 Смотреть всё
               </button>
             )}
@@ -324,7 +334,7 @@ export default function AnalyticsPage() {
               <p className="text-sm font-medium text-gray-600">Доступ ограничен</p>
               <p className="text-xs text-gray-400 mt-1">Только для администраторов</p>
             </div>
-          ) : !managers?.length ? (
+          ) : !managerRows.length ? (
             <p className="text-gray-400 text-sm text-center py-12">Данных нет</p>
           ) : (
             <div className="overflow-x-auto">
@@ -346,7 +356,7 @@ export default function AnalyticsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {managers.map((m, idx) => (
+                  {managerRows.slice(0, 5).map((m, idx) => (
                     <tr key={m.managerName} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-3.5">
                         <div className="flex items-center gap-3">
@@ -383,6 +393,90 @@ export default function AnalyticsPage() {
           )}
         </div>
       </div>
+
+      {activePanel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={() => setActivePanel(null)} />
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white shadow-2xl border border-gray-100 flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {activePanel === 'destinations' ? 'Все направления' : 'Эффективность менеджеров'}
+                </h3>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {activePanel === 'destinations'
+                    ? 'Полный список направлений с количеством бронирований'
+                    : 'Полная таблица менеджеров по продажам и выручке'}
+                </p>
+              </div>
+              <button
+                onClick={() => setActivePanel(null)}
+                className="w-9 h-9 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {activePanel === 'destinations' ? (
+                <div className="space-y-3">
+                  {destinationRows.map((d, index) => (
+                    <div key={d.destination} className="flex items-center gap-3 rounded-2xl border border-gray-100 px-4 py-3">
+                      <span className="w-8 text-xs font-semibold text-gray-400">{index + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-4">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{d.destination}</p>
+                          <p className="text-sm font-medium text-gray-600 flex-shrink-0">{d.count} броней</p>
+                        </div>
+                        <div className="mt-2 h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${(d.count / maxDestCount) * 100}%`,
+                              background: AVATAR_COLORS[index % AVATAR_COLORS.length],
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Менеджер</th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Броней</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Выручка</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Конверсия</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {managerRows.map((m, idx) => (
+                        <tr key={`${m.managerName}-${idx}`} className="hover:bg-gray-50">
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <AgentAvatar name={m.managerName ?? '—'} color={AVATAR_COLORS[idx % AVATAR_COLORS.length]} />
+                              <span className="text-sm font-medium text-gray-900">{m.managerName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5 text-center text-sm font-semibold text-gray-900">{m.bookingCount}</td>
+                          <td className="px-4 py-3.5 text-right text-sm font-medium text-gray-900">{formatCurrency(m.revenue)}</td>
+                          <td className="px-4 py-3.5 text-right">
+                            <span className="text-sm font-semibold" style={{ color: (m.conversionRate ?? 0) >= 50 ? '#22C55E' : '#F59E0B' }}>
+                              {(m.conversionRate ?? 0).toFixed(1)}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

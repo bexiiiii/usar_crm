@@ -88,6 +88,36 @@ public class TourEntity extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(columnDefinition = "TEXT")
+    private String locations;
+
+    @Column(columnDefinition = "TEXT")
+    private String included;
+
+    @Column(columnDefinition = "TEXT")
+    private String program;
+
+    @Column(columnDefinition = "TEXT")
+    private String warnings;
+
+    @Column(name = "what_to_bring", columnDefinition = "TEXT")
+    private String whatToBring;
+
+    @Column(name = "dress_code", columnDefinition = "TEXT")
+    private String dressCode;
+
+    @Column(name = "transport_notes", columnDefinition = "TEXT")
+    private String transportNotes;
+
+    @Column(name = "meal_info", columnDefinition = "TEXT")
+    private String mealInfo;
+
+    @Column(name = "departure_dates", columnDefinition = "TEXT")
+    private String departureDates;
+
+    @Column(name = "average_check")
+    private String averageCheck;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id")
     private UserEntity createdBy;

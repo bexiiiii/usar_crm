@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -49,12 +50,14 @@ public class TourController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<TourResponse>> update(@PathVariable UUID id,
                                                              @Valid @RequestBody TourRequest req) {
         return ResponseEntity.ok(ApiResponse.success(tourService.update(id, req)));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         tourService.delete(id);
         return ResponseEntity.ok(ApiResponse.success(null));

@@ -24,13 +24,21 @@ const mealLabels: Record<string, string> = {
   BB: 'Завтрак', HB: 'Полупансион', FB: 'Полный пансион', AI: 'Всё включено',
 }
 
+interface PaymentFormValues {
+  amount: number
+  currency: string
+  type: string
+  method: string
+  direction: 'INCOMING' | 'OUTGOING'
+}
+
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  const canViewCost = canAccess(user?.role, 'view_cost_price')
-  const canCancel = canAccess(user?.role, 'cancel_booking')
+  const canEdit = canAccess(user?.role, 'edit_record', user?.permissions)
+  const canViewCost = canAccess(user?.role, 'view_cost_price', user?.permissions)
   const [showPaymentForm, setShowPaymentForm] = useState(false)
 
   const { data: booking, isLoading } = useQuery<Booking>({
@@ -57,10 +65,17 @@ export default function BookingDetailPage() {
     },
   })
 
-  const { register, handleSubmit, reset } = useForm()
+  const { register, handleSubmit, reset, watch } = useForm<PaymentFormValues>({
+    defaultValues: {
+      currency: booking?.currency || 'KZT',
+      type: 'DEPOSIT',
+      method: 'CASH',
+      direction: 'INCOMING',
+    },
+  })
 
   const paymentMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) =>
+    mutationFn: (data: PaymentFormValues) =>
       api.post('/payments', { ...data, bookingId: id, clientId: booking?.clientId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments', id] })
@@ -68,11 +83,27 @@ export default function BookingDetailPage() {
       setShowPaymentForm(false)
       reset()
     },
+    onError: (error: { response?: { data?: { error?: string } } }) => {
+      toast.error(error.response?.data?.error || 'Не удалось сохранить платёж')
+    },
   })
 
   const totalPaid = payments?.filter(p => p.direction === 'INCOMING' && p.status === 'COMPLETED')
     .reduce((sum, p) => sum + p.amount, 0) ?? 0
+  const reservedIncoming = payments?.filter(
+    (p) => p.direction === 'INCOMING' && ['PENDING', 'COMPLETED'].includes(p.status)
+  ).reduce((sum, p) => sum + p.amount, 0) ?? 0
   const remaining = (booking?.totalPrice ?? 0) - totalPaid
+  const remainingForNewIncoming = Math.max(0, (booking?.totalPrice ?? 0) - reservedIncoming)
+  const paymentDirection = watch('direction')
+
+  function submitPayment(formData: PaymentFormValues) {
+    if (formData.direction === 'INCOMING' && formData.amount > remainingForNewIncoming) {
+      toast.error(`Нельзя принять больше остатка: ${formatCurrency(remainingForNewIncoming, booking?.currency || 'KZT')}`)
+      return
+    }
+    paymentMutation.mutate(formData)
+  }
 
   if (isLoading) return (
     <div className="space-y-4">
@@ -97,19 +128,24 @@ export default function BookingDetailPage() {
               <ArrowLeft01Icon size={16} />
               Назад
             </button>
-            <select
-              value={booking.status}
-              onChange={(e) => statusMutation.mutate(e.target.value)}
-              disabled={!canCancel && booking.status !== 'CANCELLED'}
-              className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {['PENDING','CONFIRMED','PAID','IN_PROGRESS','COMPLETED','CANCELLED'].map((s) => (
-                <option key={s} value={s}>{
-                  {PENDING:'Ожидает',CONFIRMED:'Подтверждено',PAID:'Оплачено',
-                   IN_PROGRESS:'В процессе',COMPLETED:'Завершено',CANCELLED:'Отменено'}[s]
-                }</option>
-              ))}
-            </select>
+            {canEdit ? (
+              <select
+                value={booking.status}
+                onChange={(e) => statusMutation.mutate(e.target.value)}
+                className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {['PENDING','CONFIRMED','PAID','IN_PROGRESS','COMPLETED','CANCELLED'].map((s) => (
+                  <option key={s} value={s}>{
+                    {PENDING:'Ожидает',CONFIRMED:'Подтверждено',PAID:'Оплачено',
+                     IN_PROGRESS:'В процессе',COMPLETED:'Завершено',CANCELLED:'Отменено'}[s]
+                  }</option>
+                ))}
+              </select>
+            ) : (
+              <div className="px-4 py-2.5 border border-gray-200 rounded-xl bg-white">
+                <StatusBadge value={booking.status} type="booking" />
+              </div>
+            )}
           </div>
         }
       />
@@ -258,15 +294,42 @@ export default function BookingDetailPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Добавить платёж</h2>
-            <form onSubmit={handleSubmit((d) => paymentMutation.mutate(d))} className="space-y-4">
+            <form onSubmit={handleSubmit(submitPayment)} className="space-y-4">
+              <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Остаток по брони</p>
+                <p className="mt-1 text-sm font-semibold text-blue-900">
+                  {formatCurrency(remainingForNewIncoming, booking.currency)}
+                </p>
+                <p className="mt-1 text-xs text-blue-700">
+                  Для входящего платежа сумма не может превышать этот остаток.
+                </p>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Сумма</label>
-                  <input {...register('amount', { required: true })} type="number" step="0.01" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    {...register('amount', {
+                      required: true,
+                      min: 0.01,
+                      valueAsNumber: true,
+                      validate: (value) => {
+                        if (paymentDirection === 'INCOMING' && value > remainingForNewIncoming) {
+                          return `Максимум ${formatCurrency(remainingForNewIncoming, booking.currency)}`
+                        }
+                        return true
+                      },
+                    })}
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={paymentDirection === 'INCOMING' ? remainingForNewIncoming : undefined}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Валюта</label>
                   <select {...register('currency')} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="KZT">KZT — Тенге</option>
                     <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
                     <option value="RUB">RUB</option>

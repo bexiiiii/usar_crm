@@ -1,11 +1,11 @@
-FROM eclipse-temurin:21-jdk-alpine AS build
+FROM mirror.gcr.io/library/eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache maven
 COPY pom.xml .
 COPY src ./src
 RUN mvn package -DskipTests
 
-FROM eclipse-temurin:21-jre-alpine
+FROM mirror.gcr.io/library/eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080

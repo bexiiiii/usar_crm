@@ -25,8 +25,8 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<PaymentResponse>>> findByBooking(@RequestParam UUID bookingId) {
-        return ResponseEntity.ok(ApiResponse.success(paymentService.findByBooking(bookingId)));
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> findByBooking(@RequestParam String bookingId) {
+        return ResponseEntity.ok(ApiResponse.success(paymentService.findByBookingIdentifier(bookingId)));
     }
 
     @PostMapping
@@ -38,6 +38,7 @@ public class PaymentController {
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<PaymentResponse>> updateStatus(
             @PathVariable UUID id,
             @RequestBody Map<String, String> body) {

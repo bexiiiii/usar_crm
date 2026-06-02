@@ -1,9 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import * as XLSX from 'xlsx'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
+import { canAccess } from '@/lib/auth'
 import api from '@/lib/api'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
+import { Booking, TourBookingExportRow } from '@/types'
 import toast from 'react-hot-toast'
 import {
   AirplaneTakeOff01Icon,
@@ -17,6 +22,7 @@ import {
   Calendar01Icon,
   Money01Icon,
   UserGroupIcon,
+  ArrowDown01Icon,
 } from 'hugeicons-react'
 
 interface Tour {
@@ -46,6 +52,16 @@ interface Tour {
   insuranceIncluded: boolean
   notes: string | null
   createdAt: string
+  locations: string | null
+  included: string | null
+  program: string | null
+  warnings: string | null
+  whatToBring: string | null
+  dressCode: string | null
+  transportNotes: string | null
+  mealInfo: string | null
+  departureDates: string | null
+  averageCheck: string | null
 }
 
 interface TourForm {
@@ -71,15 +87,28 @@ interface TourForm {
   insuranceIncluded: boolean
   notes: string
   description: string
+  departureDates: string
+  locations: string
+  included: string
+  program: string
+  mealInfo: string
+  warnings: string
+  whatToBring: string
+  dressCode: string
+  transportNotes: string
+  averageCheck: string
 }
 
 const EMPTY_FORM: TourForm = {
   name: '', country: '', resort: '', hotelName: '', hotelStars: '',
   tourOperator: '', category: 'BEACH', departureCity: '', durationDays: '7',
   mealPlan: 'AI', transport: 'AIR', priceNetto: '', priceBrutto: '',
-  currency: 'USD', maxSeats: '', status: 'ACTIVE',
+  currency: 'KZT', maxSeats: '', status: 'ACTIVE',
   departureDate: '', returnDate: '', visaRequired: false,
   insuranceIncluded: false, notes: '', description: '',
+  departureDates: '', locations: '', included: '', program: '',
+  mealInfo: '', warnings: '', whatToBring: '', dressCode: '',
+  transportNotes: '', averageCheck: '',
 }
 
 const categoryLabels: Record<string, string> = {
@@ -103,7 +132,32 @@ const statusColors: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   ACTIVE: 'Активный', DRAFT: 'Черновик', SOLD_OUT: 'Нет мест', ARCHIVED: 'Архив',
 }
+const bookingStatusColors: Record<string, string> = {
+  PENDING: 'bg-yellow-100 text-yellow-700',
+  CONFIRMED: 'bg-blue-100 text-blue-700',
+  PAID: 'bg-green-100 text-green-700',
+  IN_PROGRESS: 'bg-indigo-100 text-indigo-700',
+  COMPLETED: 'bg-gray-100 text-gray-600',
+  CANCELLED: 'bg-red-100 text-red-600',
+}
+const bookingStatusLabels: Record<string, string> = {
+  PENDING: 'Ожидает',
+  CONFIRMED: 'Подтверждено',
+  PAID: 'Оплачено',
+  IN_PROGRESS: 'В процессе',
+  COMPLETED: 'Завершено',
+  CANCELLED: 'Отменено',
+}
 const AVATAR_COLORS = ['#2B5BF0', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4']
+
+function buildTourExportFilename(tour: Tour) {
+  const slug = tour.name
+    .toLowerCase()
+    .replace(/[^a-z0-9а-яё]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+
+  return `tour_${slug || 'export'}_${new Date().toISOString().slice(0, 10)}.xlsx`
+}
 
 function Stars({ count }: { count: number }) {
   return (
@@ -120,15 +174,21 @@ function Stars({ count }: { count: number }) {
 }
 
 export default function ToursPage() {
+  const router = useRouter()
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canEdit = canAccess(user?.role, 'edit_record', user?.permissions)
+  const canDelete = canAccess(user?.role, 'delete_record', user?.permissions)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [page, setPage] = useState(0)
   const [showModal, setShowModal] = useState(false)
+  const [selectedTour, setSelectedTour] = useState<Tour | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<TourForm>(EMPTY_FORM)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
+  const [exportingTourId, setExportingTourId] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['tours', page, search, statusFilter, categoryFilter],
@@ -140,6 +200,16 @@ export default function ToursPage() {
         ...(categoryFilter && { category: categoryFilter }),
       })
       const res = await api.get(`/tours?${params}`)
+      return res.data.data
+    },
+  })
+
+  const { data: tourBookings = [], isLoading: isTourBookingsLoading } = useQuery<Booking[]>({
+    queryKey: ['tour-bookings', selectedTour?.id],
+    enabled: Boolean(selectedTour?.id),
+    queryFn: async () => {
+      if (!selectedTour) return []
+      const res = await api.get(`/bookings/by-tour/${selectedTour.id}`)
       return res.data.data
     },
   })
@@ -218,6 +288,16 @@ export default function ToursPage() {
       insuranceIncluded: tour.insuranceIncluded,
       notes: tour.notes ?? '',
       description: tour.description ?? '',
+      departureDates: tour.departureDates ?? '',
+      locations: tour.locations ?? '',
+      included: tour.included ?? '',
+      program: tour.program ?? '',
+      mealInfo: tour.mealInfo ?? '',
+      warnings: tour.warnings ?? '',
+      whatToBring: tour.whatToBring ?? '',
+      dressCode: tour.dressCode ?? '',
+      transportNotes: tour.transportNotes ?? '',
+      averageCheck: tour.averageCheck ?? '',
     })
     setEditingId(tour.id)
     setShowModal(true)
@@ -227,6 +307,106 @@ export default function ToursPage() {
     setShowModal(false)
     setEditingId(null)
     setForm(EMPTY_FORM)
+  }
+
+  function openBookings(tour: Tour) {
+    setSelectedTour(tour)
+  }
+
+  function closeBookings() {
+    setSelectedTour(null)
+  }
+
+  async function handleExportTour(tour: Tour) {
+    try {
+      setExportingTourId(tour.id)
+      const res = await api.get(`/bookings/by-tour/${tour.id}/export`)
+      const rows: TourBookingExportRow[] = res.data.data
+
+      if (!rows.length) {
+        toast.error('По этому туру пока нет данных для экспорта')
+        return
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(
+        rows.map((row, index) => ({
+          '№': index + 1,
+          'Код брони': row.bookingNumber,
+          Тур: row.tourName,
+          Турист: row.clientName,
+          Телефон: row.clientPhone || '—',
+          Email: row.clientEmail || '—',
+          'Паспорт': row.passportNumber || '—',
+          'Паспорт до': formatDate(row.passportExpiry),
+          'Дата рождения': formatDate(row.dateOfBirth),
+          Менеджер: row.assignedManagerName || '—',
+          Статус: bookingStatusLabels[row.status] || row.status,
+          Тип: row.type,
+          Направление: row.destination,
+          Страна: row.country || '—',
+          'Город вылета': row.departureCity || '—',
+          'Место сбора': row.pickupLocation || '—',
+          'Дата вылета': formatDate(row.departureDate),
+          'Дата возврата': formatDate(row.returnDate),
+          'Взрослых': row.paxAdults,
+          Детей: row.paxChildren,
+          'Всего туристов': row.totalTourists,
+          Отель: row.hotelName || '—',
+          Питание: row.mealPlan || '—',
+          'Туроператор': row.tourOperator || '—',
+          'Референс поставщика': row.supplierRef || '—',
+          'Стоимость тура': formatCurrency(row.totalPrice, row.currency),
+          Оплачено: formatCurrency(row.paidAmount, row.currency),
+          Остаток: formatCurrency(row.remainingAmount, row.currency),
+          Валюта: row.currency,
+          Заметки: row.notes || '—',
+          'Особые пожелания': row.specialRequests || '—',
+        }))
+      )
+
+      worksheet['!cols'] = [
+        { wch: 6 },
+        { wch: 18 },
+        { wch: 28 },
+        { wch: 26 },
+        { wch: 18 },
+        { wch: 28 },
+        { wch: 18 },
+        { wch: 14 },
+        { wch: 14 },
+        { wch: 22 },
+        { wch: 16 },
+        { wch: 14 },
+        { wch: 22 },
+        { wch: 16 },
+        { wch: 18 },
+        { wch: 28 },
+        { wch: 14 },
+        { wch: 14 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 14 },
+        { wch: 24 },
+        { wch: 14 },
+        { wch: 22 },
+        { wch: 22 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 10 },
+        { wch: 32 },
+        { wch: 32 },
+      ]
+
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Туристы по туру')
+      XLSX.writeFile(workbook, buildTourExportFilename(tour))
+      toast.success(`Экспорт по туру «${tour.name}» готов`)
+    } catch {
+      toast.error('Не удалось выгрузить тур в Excel')
+    } finally {
+      setExportingTourId(null)
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -380,7 +560,14 @@ export default function ToursPage() {
               {/* Card body */}
               <div className="p-4 space-y-3">
                 <div>
-                  <h3 className="font-semibold text-sm leading-tight" style={{ color: '#1A2332' }}>{tour.name}</h3>
+                  <button
+                    type="button"
+                    onClick={() => openBookings(tour)}
+                    className="text-left transition-colors hover:text-[#2B5BF0]"
+                    style={{ color: '#1A2332' }}
+                  >
+                    <h3 className="font-semibold text-sm leading-tight">{tour.name}</h3>
+                  </button>
                   {tour.hotelName && (
                     <p className="text-xs mt-0.5" style={{ color: '#6B7A9A' }}>{tour.hotelName}</p>
                   )}
@@ -426,23 +613,46 @@ export default function ToursPage() {
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => openEdit(tour)}
-                      className="p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                      style={{ color: '#2B5BF0' }}
+                      type="button"
+                      onClick={() => openBookings(tour)}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:opacity-90"
+                      style={{ background: '#EEF0F8', color: '#2B5BF0' }}
                     >
-                      <Edit01Icon size={15} />
+                      Брони {tour.bookedSeats}
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirm('Удалить тур?')) deleteMutation.mutate(tour.id)
-                      }}
-                      className="p-2 rounded-lg hover:bg-red-50 transition-colors"
-                      style={{ color: '#EF4444' }}
+                      type="button"
+                      onClick={() => handleExportTour(tour)}
+                      disabled={exportingTourId === tour.id}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60"
+                      style={{ background: '#ECFDF3', color: '#047857' }}
                     >
-                      <Delete01Icon size={15} />
+                      {exportingTourId === tour.id ? 'Экспорт...' : 'Excel'}
                     </button>
+                    <div className="flex gap-1">
+                      {canEdit && (
+                        <button
+                          onClick={() => openEdit(tour)}
+                          className="p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                          style={{ color: '#2B5BF0' }}
+                        >
+                          <Edit01Icon size={15} />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => {
+                            if (confirm('Удалить тур?')) deleteMutation.mutate(tour.id)
+                          }}
+                          className="p-2 rounded-lg hover:bg-red-50 transition-colors"
+                          style={{ color: '#EF4444' }}
+                        >
+                          <Delete01Icon size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -471,7 +681,14 @@ export default function ToursPage() {
                   <tr key={tour.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3.5">
                       <div>
-                        <p className="text-sm font-semibold" style={{ color: '#1A2332' }}>{tour.name}</p>
+                        <button
+                          type="button"
+                          onClick={() => openBookings(tour)}
+                          className="text-left text-sm font-semibold transition-colors hover:text-[#2B5BF0]"
+                          style={{ color: '#1A2332' }}
+                        >
+                          {tour.name}
+                        </button>
                         {tour.hotelName && (
                           <p className="text-xs mt-0.5" style={{ color: '#6B7A9A' }}>{tour.hotelName} {tour.hotelStars ? <span className="text-yellow-500">{'★'.repeat(tour.hotelStars)}</span> : ''}</p>
                         )}
@@ -513,21 +730,42 @@ export default function ToursPage() {
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1 justify-end">
                         <button
-                          onClick={() => openEdit(tour)}
-                          className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-                          style={{ color: '#2B5BF0' }}
+                          type="button"
+                          onClick={() => openBookings(tour)}
+                          className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
+                          style={{ background: '#EEF0F8', color: '#2B5BF0' }}
                         >
-                          <Edit01Icon size={14} />
+                          Брони {tour.bookedSeats}
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm('Удалить тур?')) deleteMutation.mutate(tour.id)
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                          style={{ color: '#EF4444' }}
+                          type="button"
+                          onClick={() => handleExportTour(tour)}
+                          disabled={exportingTourId === tour.id}
+                          className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60"
+                          style={{ background: '#ECFDF3', color: '#047857' }}
                         >
-                          <Delete01Icon size={14} />
+                          {exportingTourId === tour.id ? 'Экспорт...' : 'Excel'}
                         </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => openEdit(tour)}
+                            className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                            style={{ color: '#2B5BF0' }}
+                          >
+                            <Edit01Icon size={14} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => {
+                              if (confirm('Удалить тур?')) deleteMutation.mutate(tour.id)
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                            style={{ color: '#EF4444' }}
+                          >
+                            <Delete01Icon size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -562,6 +800,86 @@ export default function ToursPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tour bookings modal */}
+      {selectedTour && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeBookings} />
+          <div
+            className="relative bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl"
+            style={{ border: '1px solid #E2E8F4' }}
+          >
+            <div className="px-6 py-4 border-b flex items-start justify-between" style={{ borderColor: '#E2E8F4' }}>
+              <div>
+                <h2 className="text-base font-bold" style={{ color: '#1A2332' }}>Бронирования по туру</h2>
+                <p className="text-sm mt-1" style={{ color: '#6B7A9A' }}>
+                  {selectedTour.name} · {tourBookings.length} {tourBookings.length === 1 ? 'бронь' : tourBookings.length < 5 ? 'брони' : 'броней'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleExportTour(selectedTour)}
+                  disabled={exportingTourId === selectedTour.id}
+                  className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium disabled:opacity-60"
+                  style={{ borderColor: '#D1FAE5', color: '#047857', background: '#ECFDF3' }}
+                >
+                  <ArrowDown01Icon size={15} />
+                  {exportingTourId === selectedTour.id ? 'Экспорт...' : 'Экспорт в Excel'}
+                </button>
+                <button onClick={closeBookings} className="text-gray-400 hover:text-gray-600 transition-colors text-xl">✕</button>
+              </div>
+            </div>
+
+            {isTourBookingsLoading ? (
+              <div className="p-8 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+              </div>
+            ) : !tourBookings.length ? (
+              <div className="p-8 text-center">
+                <p className="font-medium" style={{ color: '#1A2332' }}>По этому туру пока нет бронирований</p>
+                <p className="text-sm mt-1" style={{ color: '#6B7A9A' }}>Когда появятся брони, здесь будет список клиентов и деталей поездки.</p>
+              </div>
+            ) : (
+              <div className="max-h-[65vh] overflow-y-auto divide-y" style={{ borderColor: '#F1F3F9' }}>
+                {tourBookings.map((booking) => (
+                  <button
+                    key={booking.id}
+                    type="button"
+                    onClick={() => {
+                      closeBookings()
+                      router.push(`/bookings/${booking.id}`)
+                    }}
+                    className="w-full px-6 py-4 flex items-start justify-between gap-4 text-left hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: '#1A2332' }}>{booking.clientName}</p>
+                      <p className="text-sm mt-1" style={{ color: '#6B7A9A' }}>
+                        {booking.bookingNumber} · {booking.destination}
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: '#94A3B8' }}>
+                        Вылет: {formatDate(booking.departureDate)}
+                        {booking.returnDate ? ` · Возврат: ${formatDate(booking.returnDate)}` : ''}
+                        {` · Туристы: ${booking.paxAdults + booking.paxChildren}`}
+                        {booking.pickupLocation ? ` · Сбор: ${booking.pickupLocation}` : ''}
+                        {booking.assignedManagerName ? ` · Менеджер: ${booking.assignedManagerName}` : ''}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className={`inline-flex text-xs font-semibold rounded-lg px-2.5 py-1 ${bookingStatusColors[booking.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {bookingStatusLabels[booking.status] ?? booking.status}
+                      </span>
+                      <p className="text-sm font-semibold mt-2" style={{ color: '#1A2332' }}>
+                        {formatCurrency(booking.totalPrice, booking.currency)}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -852,6 +1170,121 @@ export default function ToursPage() {
                   className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
                   style={{ borderColor: '#E2E8F4' }}
                 />
+              </div>
+
+              {/* Detailed tour info section */}
+              <div className="border-t pt-5" style={{ borderColor: '#E2E8F4' }}>
+                <h3 className="text-sm font-bold mb-4" style={{ color: '#1A2332' }}>Подробная информация о туре</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Даты отправления</label>
+                    <textarea
+                      value={form.departureDates}
+                      onChange={(e) => setForm({ ...form, departureDates: e.target.value })}
+                      rows={3}
+                      placeholder={"8, 15, 22, 29 марта\n5, 12, 19, 26 апреля"}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Посещаемые локации (каждая с новой строки)</label>
+                    <textarea
+                      value={form.locations}
+                      onChange={(e) => setForm({ ...form, locations: e.target.value })}
+                      rows={4}
+                      placeholder={"Чарынский каньон «Долина Замков»\nЧёрный каньон\nЛунный каньон"}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>В стоимость входит (каждый пункт с новой строки)</label>
+                    <textarea
+                      value={form.included}
+                      onChange={(e) => setForm({ ...form, included: e.target.value })}
+                      rows={4}
+                      placeholder={"Комфортабельный транспорт\nВход в национальные парки\nУслуги гида"}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Программа тура (расписание)</label>
+                    <textarea
+                      value={form.program}
+                      onChange={(e) => setForm({ ...form, program: e.target.value })}
+                      rows={6}
+                      placeholder={"8:00–8:30 — сбор и выезд\n11:30 — прибытие на каньон..."}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Информация о питании</label>
+                    <textarea
+                      value={form.mealInfo}
+                      onChange={(e) => setForm({ ...form, mealInfo: e.target.value })}
+                      rows={3}
+                      placeholder="Питание в стоимость не входит. Средний чек: 3 500–4 000 тенге"
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>⚠️ Важные предупреждения</label>
+                    <textarea
+                      value={form.warnings}
+                      onChange={(e) => setForm({ ...form, warnings: e.target.value })}
+                      rows={3}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Что взять с собой (каждый пункт с новой строки)</label>
+                    <textarea
+                      value={form.whatToBring}
+                      onChange={(e) => setForm({ ...form, whatToBring: e.target.value })}
+                      rows={5}
+                      placeholder={"Удостоверение личности\nЕда и перекус\nТёплые вещи"}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Как одеться</label>
+                    <textarea
+                      value={form.dressCode}
+                      onChange={(e) => setForm({ ...form, dressCode: e.target.value })}
+                      rows={3}
+                      placeholder={"Тёплые вещи\nВетровка, куртка\nОбувь с нескользящей подошвой"}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Транспорт (важная информация)</label>
+                    <textarea
+                      value={form.transportNotes}
+                      onChange={(e) => setForm({ ...form, transportNotes: e.target.value })}
+                      rows={2}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#6B7A9A' }}>Средний чек</label>
+                    <input
+                      type="text"
+                      value={form.averageCheck}
+                      onChange={(e) => setForm({ ...form, averageCheck: e.target.value })}
+                      placeholder="3 500–4 000 тенге"
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+                      style={{ borderColor: '#E2E8F4' }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-2">

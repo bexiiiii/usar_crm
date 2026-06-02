@@ -2,7 +2,9 @@ package com.travelcrm.modules.bookings.controller;
 
 import com.travelcrm.config.UserPrincipal;
 import com.travelcrm.modules.bookings.dto.BookingRequest;
+import com.travelcrm.modules.bookings.dto.BookingMonthlySummaryResponse;
 import com.travelcrm.modules.bookings.dto.BookingResponse;
+import com.travelcrm.modules.bookings.dto.TourBookingExportResponse;
 import com.travelcrm.modules.bookings.service.BookingService;
 import com.travelcrm.shared.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -58,6 +60,7 @@ public class BookingController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<BookingResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody BookingRequest request,
@@ -66,6 +69,7 @@ public class BookingController {
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<BookingResponse>> updateStatus(
             @PathVariable UUID id,
             @RequestBody Map<String, String> body,
@@ -91,5 +95,26 @@ public class BookingController {
             @PathVariable UUID clientId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(ApiResponse.success(bookingService.findByClient(clientId, currentUser)));
+    }
+
+    @GetMapping("/by-tour/{tourId}")
+    public ResponseEntity<ApiResponse<List<BookingResponse>>> byTour(
+            @PathVariable UUID tourId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(ApiResponse.success(bookingService.findByTour(tourId, currentUser)));
+    }
+
+    @GetMapping("/by-tour/{tourId}/export")
+    public ResponseEntity<ApiResponse<List<TourBookingExportResponse>>> exportByTour(
+            @PathVariable UUID tourId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(ApiResponse.success(bookingService.findExportByTour(tourId, currentUser)));
+    }
+
+    @GetMapping("/monthly-summary")
+    public ResponseEntity<ApiResponse<List<BookingMonthlySummaryResponse>>> monthlySummary(
+            @RequestParam(required = false) Integer year,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(ApiResponse.success(bookingService.findMonthlySummary(year, currentUser)));
     }
 }

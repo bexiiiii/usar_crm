@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import * as XLSX from 'xlsx'
 import api from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { canAccess } from '@/lib/auth'
 import { Client, PaginatedResponse } from '@/types'
-import { Search01Icon, UserAdd01Icon, Delete01Icon, Edit01Icon, FilterIcon } from 'hugeicons-react'
+import { Search01Icon, UserAdd01Icon, Delete01Icon, Edit01Icon, FilterIcon, Cancel01Icon } from 'hugeicons-react'
 import toast from 'react-hot-toast'
 
 const statusOptions = [
@@ -37,11 +39,28 @@ export default function ClientsPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  const canDelete = canAccess(user?.role, 'delete_record')
+  const canEdit = canAccess(user?.role, 'edit_record', user?.permissions)
+  const canDelete = canAccess(user?.role, 'delete_record', user?.permissions)
+  const canExport = canAccess(user?.role, 'export_data', user?.permissions)
 
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm()
+
+  const createMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/clients', data),
+    onSuccess: () => {
+      toast.success('Клиент создан')
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      setShowCreateModal(false)
+      reset()
+    },
+    onError: () => toast.error('Ошибка при создании клиента'),
+  })
 
   const { data, isLoading } = useQuery<PaginatedResponse<Client>>({
     queryKey: ['clients', search, status, page],
@@ -70,6 +89,79 @@ export default function ClientsPage() {
     if (confirm('Вы уверены, что хотите удалить?')) deleteMutation.mutate(id)
   }
 
+  async function handleExport() {
+    try {
+      setIsExporting(true)
+
+      const exportPageSize = 100
+      let exportPage = 0
+      let totalPages = 1
+      const clients: Client[] = []
+
+      do {
+        const params = new URLSearchParams()
+        if (search) params.set('search', search)
+        if (status) params.set('status', status)
+        params.set('page', String(exportPage))
+        params.set('size', String(exportPageSize))
+        params.set('sort', 'createdAt,desc')
+
+        const res = await api.get(`/clients?${params}`)
+        const chunk: PaginatedResponse<Client> = res.data.data
+        clients.push(...(chunk.content ?? []))
+        totalPages = chunk.totalPages || 1
+        exportPage += 1
+      } while (exportPage < totalPages)
+
+      if (!clients.length) {
+        toast.error('Нет клиентов для экспорта')
+        return
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(
+        clients.map((client, index) => ({
+          '№': index + 1,
+          'ФИО': client.fullName,
+          Телефон: client.phone,
+          Email: client.email || '—',
+          Статус: statusLabels[client.status] || client.status,
+          Менеджер: client.assignedManagerName || '—',
+          'Брони': client.totalBookings,
+          'Выручка': formatCurrency(client.totalRevenue),
+          'Паспорт': client.passportNumber || '—',
+          'Дата рождения': client.dateOfBirth ? formatDate(client.dateOfBirth) : '—',
+          'Дата создания': formatDate(client.createdAt),
+          ID: client.id,
+        }))
+      )
+
+      worksheet['!cols'] = [
+        { wch: 6 },
+        { wch: 28 },
+        { wch: 18 },
+        { wch: 28 },
+        { wch: 16 },
+        { wch: 24 },
+        { wch: 10 },
+        { wch: 16 },
+        { wch: 18 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 38 },
+      ]
+
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Клиенты')
+      XLSX.writeFile(workbook, `clients_${new Date().toISOString().slice(0, 10)}.xlsx`)
+
+      toast.success('Экспорт клиентов готов')
+    } catch {
+      toast.error('Не удалось экспортировать клиентов')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="bg-[#EEF0F8] min-h-screen p-6">
       {/* Page Header */}
@@ -78,13 +170,25 @@ export default function ClientsPage() {
           <h1 className="text-xl font-bold text-gray-900">Клиенты</h1>
           <p className="text-sm text-gray-500 mt-0.5">Всего: {data?.totalElements ?? 0}</p>
         </div>
-        <button
-          onClick={() => router.push('/clients/new')}
-          className="flex items-center gap-2 bg-[#2B5BF0] text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <UserAdd01Icon size={16} />
-          Новый клиент
-        </button>
+        <div className="flex items-center gap-2">
+          {canExport && (
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="flex items-center gap-2 border border-[#E2E8F4] bg-white text-gray-700 rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-60 transition-colors"
+            >
+              <FilterIcon size={16} />
+              {isExporting ? 'Экспорт...' : 'Экспорт в Excel'}
+            </button>
+          )}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 bg-[#2B5BF0] text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <UserAdd01Icon size={16} />
+            Новый клиент
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -127,7 +231,7 @@ export default function ClientsPage() {
             </div>
             <p className="text-gray-500 text-sm mb-4">Клиентов пока нет. Добавьте первого клиента</p>
             <button
-              onClick={() => router.push('/clients/new')}
+              onClick={() => setShowCreateModal(true)}
               className="bg-[#2B5BF0] text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
             >
               Добавить клиента
@@ -183,12 +287,14 @@ export default function ClientsPage() {
                       <td className="px-6 py-4 text-sm text-gray-400">{formatDate(client.createdAt)}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); router.push(`/clients/${client.id}`) }}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#2B5BF0] hover:bg-blue-50 transition-colors"
-                          >
-                            <Edit01Icon size={15} />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); router.push(`/clients/${client.id}`) }}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-[#2B5BF0] hover:bg-blue-50 transition-colors"
+                            >
+                              <Edit01Icon size={15} />
+                            </button>
+                          )}
                           {canDelete && (
                             <button
                               onClick={(e) => handleDelete(e, client.id)}
@@ -233,6 +339,107 @@ export default function ClientsPage() {
           </>
         )}
       </div>
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">Новый клиент</h2>
+              <button onClick={() => { setShowCreateModal(false); reset() }} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
+                <Cancel01Icon size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Имя *</label>
+                  <input
+                    {...register('firstName', { required: true })}
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.firstName ? 'border-red-400' : 'border-[#E2E8F4]'}`}
+                    placeholder="Иван"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Фамилия *</label>
+                  <input
+                    {...register('lastName', { required: true })}
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.lastName ? 'border-red-400' : 'border-[#E2E8F4]'}`}
+                    placeholder="Иванов"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Телефон *</label>
+                <input
+                  {...register('phone', { required: true })}
+                  className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.phone ? 'border-red-400' : 'border-[#E2E8F4]'}`}
+                  placeholder="+7 999 123 45 67"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Номер паспорта</label>
+                  <input
+                    {...register('passportNumber')}
+                    className="w-full px-4 py-2.5 border border-[#E2E8F4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="AB1234567"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Дата рождения</label>
+                  <input
+                    {...register('dateOfBirth')}
+                    type="date"
+                    className="w-full px-4 py-2.5 border border-[#E2E8F4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Статус</label>
+                  <select {...register('status')} className="w-full px-4 py-2.5 border border-[#E2E8F4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <option value="NEW">Новый</option>
+                    <option value="ACTIVE">Активный</option>
+                    <option value="VIP">VIP</option>
+                    <option value="INACTIVE">Неактивный</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Источник</label>
+                  <input
+                    {...register('source')}
+                    className="w-full px-4 py-2.5 border border-[#E2E8F4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Instagram, сайт..."
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Примечания</label>
+                <textarea
+                  {...register('notes')}
+                  rows={2}
+                  className="w-full px-4 py-2.5 border border-[#E2E8F4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+              <div className="flex gap-3 justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setShowCreateModal(false); reset() }}
+                  className="px-4 py-2.5 border border-[#E2E8F4] rounded-xl text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending}
+                  className="px-4 py-2.5 bg-[#2B5BF0] text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {createMutation.isPending ? 'Сохранение...' : 'Создать клиента'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

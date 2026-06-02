@@ -1,10 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import { canAccess } from '@/lib/auth'
+import api from '@/lib/api'
 import {
   DashboardSquare01Icon,
   UserGroupIcon,
@@ -31,6 +33,7 @@ import { cn } from '@/lib/utils'
 interface SubItem {
   href: string
   label: string
+  feature?: string
 }
 
 interface NavItem {
@@ -48,7 +51,7 @@ const navItems: NavItem[] = [
     icon: DashboardSquare01Icon,
     children: [
       { href: '/analytics', label: 'Аналитика' },
-      { href: '/reports', label: 'Отчёты' },
+      { href: '/reports', label: 'Отчёты', feature: 'view_reports' },
     ],
   },
   { href: '/clients',        label: 'Клиенты',       icon: UserGroupIcon },
@@ -63,13 +66,14 @@ const navItems: NavItem[] = [
       { href: '/calendar', label: 'Календарь' },
     ],
   },
-  { href: '/payments',       label: 'Платежи',       icon: Money01Icon },
+  { href: '/payments',       label: 'Платежи',       icon: Money01Icon,          feature: 'view_payments' },
   { href: '/invoices',       label: 'Счета',         icon: Invoice01Icon },
   { href: '/tasks',          label: 'Задачи',        icon: CheckmarkSquare01Icon },
   { href: '/documents',      label: 'Документы',     icon: File01Icon },
-  { href: '/communications', label: 'Коммуникации',  icon: Message01Icon },
-  { href: '/settings',       label: 'Настройки',     icon: Settings01Icon },
-  { href: '/admin/users',    label: 'Сотрудники',    icon: UserEdit01Icon, feature: 'manage_users' },
+  { href: '/communications', label: 'Уведомления',   icon: Message01Icon },
+  { href: '/bus-manager',    label: 'Usar Bus',      icon: AirplaneLanding01Icon, feature: 'manage_buses' },
+  { href: '/settings',       label: 'Настройки',     icon: Settings01Icon,       feature: 'manage_settings' },
+  { href: '/admin/users',    label: 'Сотрудники',    icon: UserEdit01Icon,       feature: 'manage_users' },
 ]
 
 interface SidebarProps {
@@ -83,6 +87,32 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user, clearAuth } = useAuthStore()
   const [expandedItems, setExpandedItems] = useState<string[]>(['/'])
 
+  const { data: notifications } = useQuery({
+    queryKey: ['sidebar', 'notifications', user?.id],
+    queryFn: async () => {
+      const res = await api.get('/notifications/unread-count')
+      return res.data.data?.count ?? 0
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  })
+
+  const { data: pendingTasks } = useQuery({
+    queryKey: ['sidebar', 'tasks', user?.id],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        status: 'TODO,IN_PROGRESS',
+        page: '0',
+        size: '1',
+        sort: 'dueDate,asc',
+      })
+      const res = await api.get(`/tasks?${params}`)
+      return res.data.data?.totalElements ?? 0
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  })
+
   const handleLogout = () => {
     clearAuth()
     router.push('/login')
@@ -95,18 +125,27 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   }
 
   const visible = navItems.filter(item =>
-    !item.feature || canAccess(user?.role, item.feature)
+    !item.feature || canAccess(user?.role, item.feature, user?.permissions)
   )
+
+  useEffect(() => {
+    if (window.innerWidth < 1024) {
+      onClose?.()
+    }
+    // Only react to route changes on mobile.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   return (
     <>
       {open && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={onClose}
         />
       )}
       <aside
+        id="app-sidebar"
         className={cn('sidebar flex flex-col', open ? 'open' : '')}
         style={{ background: 'linear-gradient(180deg, #0B1426 0%, #1B3B82 100%)' }}
       >
@@ -125,7 +164,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </div>
           <button
             onClick={onClose}
-            className="md:hidden text-white/50 hover:text-white transition-colors"
+            className="text-white/50 transition-colors hover:text-white lg:hidden"
+            aria-label="Закрыть меню"
           >
             <Cancel01Icon size={20} />
           </button>
@@ -160,6 +200,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   >
                     <Icon size={18} />
                     {item.label}
+                    {item.href === '/tasks' && pendingTasks ? (
+                      <span className="ml-auto min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                        {pendingTasks > 9 ? '9+' : pendingTasks}
+                      </span>
+                    ) : null}
+                    {item.href === '/communications' && notifications ? (
+                      <span className="ml-auto min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                        {notifications > 9 ? '9+' : notifications}
+                      </span>
+                    ) : null}
                   </Link>
                   {hasChildren && (
                     <button
@@ -178,7 +228,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 {/* Sub-items */}
                 {hasChildren && isExpanded && (
                   <div className="ml-4 mb-1 space-y-0.5">
-                    {item.children!.map((child) => {
+                    {item.children!.filter(c => !c.feature || canAccess(user?.role, c.feature, user?.permissions)).map((child) => {
                       const childActive = pathname === child.href || (child.href !== '/' && child.href !== item.href && pathname.startsWith(child.href))
                       return (
                         <Link

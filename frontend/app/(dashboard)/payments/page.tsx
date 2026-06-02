@@ -22,17 +22,25 @@ const methodLabels: Record<string, string> = {
 
 export default function PaymentsPage() {
   const router = useRouter()
-  const [bookingId, setBookingId] = useState('')
+  const [bookingInput, setBookingInput] = useState('')
+  const [bookingQuery, setBookingQuery] = useState('')
 
   const { data: payments, isLoading } = useQuery<Payment[]>({
-    queryKey: ['payments', bookingId],
+    queryKey: ['payments', bookingQuery],
     queryFn: async () => {
-      if (!bookingId) return []
-      const res = await api.get(`/payments?bookingId=${bookingId}`)
+      if (!bookingQuery) return []
+      const res = await api.get(`/payments?bookingId=${encodeURIComponent(bookingQuery)}`)
       return res.data.data
     },
-    enabled: !!bookingId,
+    enabled: !!bookingQuery,
   })
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    const value = bookingInput.trim()
+    if (!value) return
+    setBookingQuery(value)
+  }
 
   const totalIncoming = payments?.filter(p => p.direction === 'INCOMING' && p.status === 'COMPLETED')
     .reduce((s, p) => s + p.amount, 0) ?? 0
@@ -43,20 +51,28 @@ export default function PaymentsPage() {
     <div>
       <PageHeader title="Платежи" subtitle="Управление платежами по бронированиям" />
 
-      <div className="mb-5">
-        <input
-          value={bookingId}
-          onChange={(e) => setBookingId(e.target.value)}
-          placeholder="Введите ID брони для поиска платежей..."
-          className="w-full max-w-md px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <p className="text-xs text-gray-400 mt-1.5">Введите ID бронирования для отображения связанных платежей. Вы можете найти ID в разделе Брони.</p>
-      </div>
+      <form onSubmit={handleSearch} className="mb-5 flex flex-wrap gap-3 items-end">
+        <div className="flex-1 min-w-[280px]">
+          <input
+            value={bookingInput}
+            onChange={(e) => setBookingInput(e.target.value)}
+            placeholder="UUID брони или номер брони TRV-..."
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-gray-400 mt-1.5">Можно ввести UUID брони или её номер. Платежи покажутся без лишних ошибок, если бронь не найдена.</p>
+        </div>
+        <button
+          type="submit"
+          className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
+        >
+          Найти
+        </button>
+      </form>
 
-      {!bookingId ? (
+      {!bookingQuery ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 py-16">
           <EmptyState
-            message="Введите ID брони для просмотра платежей"
+            message="Введите UUID или номер брони для просмотра платежей"
             icon={<CreditCardAcceptIcon size={48} />}
             action={
               <button onClick={() => router.push('/bookings')} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-blue-700">
@@ -88,7 +104,7 @@ export default function PaymentsPage() {
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             {!payments?.length ? (
-              <p className="text-gray-400 text-sm text-center py-12">Платежей по этой брони нет</p>
+              <p className="text-gray-400 text-sm text-center py-12">Платежей по этому идентификатору не найдено</p>
             ) : (
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-100">
